@@ -21,13 +21,13 @@ const sanityClient = createClient({
 });
 
 // ===================================================================
-// META DATA SEO (OPEN GRAPH & METADATA LENGKAP YAIBADURROHMAN)
+// META DATA SEO (OPEN GRAPH & METADATA LENGKAP BDB)
 // ===================================================================
 export const metadata: Metadata = {
-  title: 'Peta Situs Resmi (Sitemap) | yaibadurrohman.or.id',
-  description: 'Indeks navigasi lengkap seluruh program donasi, zakat digital, infak kemanusiaan, wakaf, dan kabar berita pembaruan yaibadurrohman.or.id.',
+  title: 'Peta Situs Resmi (Sitemap) | bdb.or.id',
+  description: 'Indeks navigasi lengkap seluruh program donasi, zakat digital, infak kemanusiaan, wakaf, dan kabar berita pembaruan bdb.or.id.',
   alternates: {
-    canonical: 'https://www.yaibadurrohman.or.id/peta-situs',
+    canonical: 'https://www.bdb.or.id/peta-situs',
   },
   robots: {
     index: true,
@@ -42,10 +42,10 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Peta Situs Resmi (Sitemap) | yaibadurrohman.or.id',
-    description: 'Akses cepat seluruh struktur halaman program kebaikan dan transparansi laporan yaibadurrohman.or.id.',
-    url: 'https://www.yaibadurrohman.or.id/peta-situs',
-    siteName: 'yaibadurrohman.or.id',
+    title: 'Peta Situs Resmi (Sitemap) | bdb.or.id',
+    description: 'Akses cepat seluruh struktur halaman program kebaikan dan transparansi laporan bdb.or.id.',
+    url: 'https://www.bdb.or.id/peta-situs',
+    siteName: 'bdb.or.id',
     locale: 'id_ID',
     type: 'website',
   },
@@ -95,7 +95,7 @@ export default async function PetaSitusPage() {
             🗺️ Peta Situs Resmi (HTML Sitemap)
           </h1>
           <p className="text-xs text-gray-500 leading-relaxed">
-            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-gray-700">yaibadurrohman.or.id</span> secara transparan.
+            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-gray-700">bdb.or.id</span> secara transparan.
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default async function PetaSitusPage() {
               {halamanInti.map((item, idx) => (
                 <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
                   <a href={item.url} className="hover:text-[#0d5c91] transition block font-bold">
-                    {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id${item.url}`}</span>
+                    {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.bdb.or.id${item.url}`}</span>
                   </a>
                 </li>
               ))}
@@ -128,7 +128,7 @@ export default async function PetaSitusPage() {
                 {programs.map((item, idx) => (
                   <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
                     <a href={`/campaign/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold">
-                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/campaign/${item.slug}`}</span>
+                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.bdb.or.id/campaign/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
@@ -148,7 +148,7 @@ export default async function PetaSitusPage() {
                 {news.map((item, idx) => (
                   <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
                     <a href={`/news/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold">
-                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/news/${item.slug}`}</span>
+                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.bdb.or.id/news/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
@@ -162,7 +162,7 @@ export default async function PetaSitusPage() {
 
         {/* FOOTER METRICS INFO */}
         <div className="text-center text-[10px] text-gray-400 font-medium tracking-wide pt-2">
-          © {new Date().getFullYear()} yaibadurrohman.or.id. Nilai tautan peta situs dipetakan otomatis terintegrasi skema indeks.
+          © {new Date().getFullYear()} bdb.or.id. Nilai tautan peta situs dipetakan otomatis terintegrasi skema indeks.
         </div>
 
       </div>

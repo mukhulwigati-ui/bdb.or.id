@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 OPTIMASI SEO MASTER
 export const metadata: Metadata = {
-  title: 'Syarat & Ketentuan | yaibadurrohman.or.id',
-  description: 'Syarat dan ketentuan resmi penggunaan platform layanan digital yaibadurrohman.or.id. Pelajari panduan hak, kewajiban pengguna, dan mekanisme operasional.',
-  keywords: ['syarat ketentuan yaibadurrohman', 'regulasi online', 'kebijakan', 'panduan'],
+  title: 'Syarat & Ketentuan | bdb.or.id',
+  description: 'Syarat dan ketentuan resmi penggunaan platform layanan digital bdb.or.id. Pelajari panduan hak, kewajiban pengguna, dan mekanisme operasional.',
+  keywords: ['syarat ketentuan bdb', 'regulasi online', 'kebijakan', 'panduan'],
   alternates: {
     canonical: '/syarat-ketentuan',
   },
@@ -35,7 +35,7 @@ export default function SyaratKetentuanPage() {
         {/* ISI KONTEN HUKUM / REGULASI */}
         <div className="text-slate-700 text-xs leading-relaxed space-y-3.5 text-left">
           <p>
-            Selamat datang di platform digital resmi <strong>yaibadurrohman.or.id</strong>. Sebelum Anda melanjutkan proses penggunaan layanan, mohon luangkan waktu sejenak untuk membaca dan memahami seluruh Syarat & Ketentuan yang berlaku di bawah ini.
+            Selamat datang di platform digital resmi <strong>bdb.or.id</strong>. Sebelum Anda melanjutkan proses penggunaan layanan, mohon luangkan waktu sejenak untuk membaca dan memahami seluruh Syarat & Ketentuan yang berlaku di bawah ini.
           </p>
           <p>
             Dengan mengakses, menggunakan, atau melakukan interaksi di dalam platform ini, Anda dianggap telah membaca, memahami, dan menyetujui untuk mengikatkan diri pada seluruh aturan regulasi yang ditetapkan oleh pengelola.
@@ -74,7 +74,7 @@ export default function SyaratKetentuanPage() {
                 <span className="text-sky-600">03.</span> Pengelolaan & Kebijakan Platform
               </h2>
               <p className="text-[11px] text-slate-600 pl-3">
-                Pengelola yaibadurrohman.or.id memiliki hak penuh dalam mengelola, mengatur, serta mengoptimalkan jalannya program maupun fitur layanan berdasarkan prinsip prioritas kemaslahatan, akuntabilitas, dan manajemen operasional yang transparan.
+                Pengelola bdb.or.id memiliki hak penuh dalam mengelola, mengatur, serta mengoptimalkan jalannya program maupun fitur layanan berdasarkan prinsip prioritas kemaslahatan, akuntabilitas, dan manajemen operasional yang transparan.
               </p>
             </div>
 

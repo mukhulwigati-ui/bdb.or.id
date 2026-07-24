@@ -32,11 +32,11 @@ export async function POST(request: Request) {
       }
 
       const messageText = 
-        `*Pendaftaran Fundraiser yaibadurrohman.or.id Disetujui!* 🎉\n\n` +
+        `*Pendaftaran Fundraiser bdb.or.id Disetujui!* 🎉\n\n` +
         `Assalamu'alaikum *${name || 'Relawan'}*,\n\n` +
         `Alhamdulillah, pengajuan Anda sebagai fundraiser telah resmi *DISETUJUI & DIAKTIFKAN* oleh admin.\n\n` +
         `Yuk, ambil tautan afiliasi unik Anda dan pantau perolehan donasi secara transparan melalui halaman resmi berikut:\n` +
-        `👉 https://www.yaibadurrohman.or.id/fundraiser/stats\n\n` +
+        `👉 https://www.bdb.or.id/fundraiser/stats\n\n` +
         `Cukup masukkan nomor WhatsApp Anda (*${formattedPhone}*) pada halaman tersebut untuk memunculkan link dan melihat riwayat donatur.\n\n` +
         `Jazakumullah Khairan Katsiran atas kontribusi terbaik Anda! 🙏`;
 

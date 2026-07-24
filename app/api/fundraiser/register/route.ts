@@ -4,7 +4,7 @@ import { createClient } from '@sanity/client';
 
 // 🚀 KLIEN KHUSUS WRITE: Menggunakan token tulis dari Vercel
 const writeClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '915u7hh1',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29gg6v',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-01-01',
   token: process.env.SANITY_API_WRITE_TOKEN, // Mengambil langsung dari Vercel
@@ -60,11 +60,11 @@ export async function POST(request: Request) {
 
       if (fonnteToken) {
         const messageText = 
-          `*Pendaftaran Fundraiser yaibadurrohman.or.id Berhasil!* 🎉\n\n` +
+          `*Pendaftaran Fundraiser bdb.or.id Berhasil!* 🎉\n\n` +
           `Assalamu'alaikum *${name}*,\n\n` +
           `Alhamdulillah, pendaftaran Anda sebagai fundraiser telah resmi *AKTIF*.\n\n` +
           `Yuk, ambil tautan afiliasi unik Anda dan pantau perolehan donasi secara transparan melalui halaman resmi berikut:\n` +
-          `👉 https://www.yaibadurrohman.or.id/fundraiser/stats\n\n` +
+          `👉 https://www.bdb.or.id/fundraiser/stats\n\n` +
           `Cukup masukkan nomor WhatsApp Anda (*${formattedPhone}*) pada halaman tersebut untuk memunculkan link dan melihat riwayat donatur.\n\n` +
           `Jazakumullah Khairan Katsiran atas kontribusi terbaik Anda! 🙏`;
 

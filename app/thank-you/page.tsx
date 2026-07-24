@@ -5,7 +5,7 @@ import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-// 1. Komponen Utama Konten Thank You yaibadurrohman.or.id
+// 1. Komponen Utama Konten Thank You bdb.or.id
 function ThankYouContent() {
   const searchParams = useSearchParams();
   

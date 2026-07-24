@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 // Inisialisasi Sanity Client di level server
 const serverClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '915u7hh1',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29gg6v',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   useCdn: false,
   apiVersion: '2024-01-01',

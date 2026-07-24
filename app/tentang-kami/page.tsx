@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 OPTIMASI SEO HALAMAN TENTANG KAMI
 export const metadata: Metadata = {
-  title: 'Tentang Kami | Profil Lembaga Resmi LAZIS Khoiro Ummah',
-  description: 'Mengenal lebih dekat LAZIS Khoiro Ummah (lazisku.com), lembaga amil zakat, infaq, dan sedekah terpercaya yang berkhidmat untuk kemaslahatan ummat, pendidikan quran, serta pemberdayaan dhuafa.',
-  keywords: ['profil lazis khoiro ummah', 'tentang lazisku', 'lembaga zakat amanah', 'sedekah online banyumas'],
+  title: 'Tentang Kami | Profil Lembaga Resmi Balai Dakwah Banjarnegara',
+  description: 'Mengenal lebih dekat Balai Dakwah Banjarnegara (bdb.or.id), lembaga amil zakat, infaq, dan sedekah terpercaya yang berkhidmat untuk kemaslahatan ummat, pendidikan quran, serta pemberdayaan dhuafa.',
+  keywords: ['profil balai dakwah banjarnegara', 'tentang bdb.or.id', 'lembaga zakat amanah', 'sedekah online banjarnegara'],
   alternates: {
     canonical: '/tentang-kami',
   },
@@ -28,7 +28,7 @@ export default function TentangKamiPage() {
             Mengalirkan Keberkahan, <br />Wujudkan Kesejahteraan Ummat
           </h1>
           <p className="text-sm md:text-base text-emerald-100/80 max-w-2xl mx-auto font-light leading-relaxed">
-            LAZIS Khoiro Ummah hadir sebagai jembatan amanah untuk mengelola dan mendistribusikan Zakat, Infaq, Sedekah, serta Wakaf secara transparan, profesional, dan akuntabel.
+            Balai Dakwah Banjarnegara hadir sebagai jembatan amanah untuk mengelola dan mendistribusikan Zakat, Infaq, Sedekah, serta Wakaf secara transparan, profesional, dan akuntabel.
           </p>
         </div>
       </div>
@@ -42,7 +42,7 @@ export default function TentangKamiPage() {
             Siapa Kami?
           </h2>
           <p>
-            <strong className="text-emerald-600 font-bold">LAZIS Khoiro Ummah (lazisku.com)</strong> adalah lembaga sosial kemanusiaan dan pengelolaan dana filantropi Islam yang berkomitmen penuh dalam menggerakkan kepedulian masyarakat. Kami fokus pada pendayagunaan dana Ziswaf yang disalurkan secara produktif, tepat sasaran, dan membawa dampak nyata jangka panjang bagi para penerima manfaat.
+            <strong className="text-emerald-600 font-bold">Balai Dakwah Banjarnegara (bdb.or.id)</strong> adalah lembaga sosial kemanusiaan dan pengelolaan dana filantropi Islam yang berkomitmen penuh dalam menggerakkan kepedulian masyarakat. Kami fokus pada pendayagunaan dana Ziswaf yang disalurkan secara produktif, tepat sasaran, dan membawa dampak nyata jangka panjang bagi para penerima manfaat.
           </p>
           <p>
             Berawal dari gerakan kepedulian terhadap pendidikan Al-Quran, pengentasan kemiskinan dhuafa, serta aksi tanggap kemanusiaan, kami terus bertransformasi mengadopsi integrasi teknologi digital otomasi pembayaran untuk memudahkan ribuan donatur mengalirkan kebaikan mereka kapan saja dan di mana saja.

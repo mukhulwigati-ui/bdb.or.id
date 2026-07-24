@@ -8,11 +8,11 @@ export const dynamic = 'force-dynamic';
 
 // 🚀 BYPASS CLIENT: Murni untuk update data esensial program website
 const client = createClient({
-  projectId: '915u7hh1',
+  projectId: 'ks29gg6v',
   dataset: 'production',
   useCdn: false,
   apiVersion: '2024-01-01',
-  token: 'sk4AP9tJp0fIN1khUK99zeKBzXjOOEDDZzQ97KfQ94YtfBK6Qcj0d4Y2gErC4g6JkU4BgZDcBYYc4SvSVYrOoOAPGhyQ3AQV6oUDVNDVaAwWJxavREqrpyEJ8TvZTMIu9J4Ne4HAtmUpcgexMdrxniSWtf5QdoC657E6lOqbdkzIrgBcQyUX',
+  token: 'skTkgR8oTccSIXr6lsYEhhShtcblvWtNod41Oq1DSARiIqwBqTEpWqaaO3AFWwLKCch2Z0SviYoIOftVnn6S37ypRTvvCPmHtC9fELz2EbMnlh0Vt70al8UZZHWE6y8VvsqRA2GUYo7uhz9WhdFWkG4BPwTbwotrE3KfB3MZthvBbIo6QxrK',
 });
 
 // ===================================================================

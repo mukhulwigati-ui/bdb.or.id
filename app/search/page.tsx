@@ -56,8 +56,8 @@ function SearchResultsContent() {
             {results.map((item) => {
               const targetUrl = item.type === 'news' ? `/news/${item.slug}` : `/campaign/${item.slug}`;
               const displayUrl = item.type === 'news' 
-                ? `yaibadurrohman.or.id › news › ${item.slug}` 
-                : `yaibadurrohman.or.id › campaign › ${item.slug}`;
+                ? `bdb.or.id › news › ${item.slug}` 
+                : `bdb.or.id › campaign › ${item.slug}`;
 
               return (
                 <div key={item.id} className="group flex flex-col space-y-1.5 text-left bg-white p-4 rounded-2xl border border-gray-200/90 shadow-sm transition hover:shadow-md">
@@ -78,8 +78,8 @@ function SearchResultsContent() {
                   {/* Deskripsi Snippet */}
                   <p className="text-xs text-gray-600 leading-relaxed font-normal line-clamp-2">
                     {item.type === 'news' 
-                      ? `Kabar dan laporan penyaluran berkala dari yaibadurrohman.or.id mengenai update program ${item.title}. Simak selengkapnya...`
-                      : `Program kebaikan yaibadurrohman.or.id untuk kategori ${item.category || 'Inspirasi'}. Salurkan infak terbaik Anda secara amanah via QRIS...`
+                      ? `Kabar dan laporan penyaluran berkala dari bdb.or.id mengenai update program ${item.title}. Simak selengkapnya...`
+                      : `Program kebaikan bdb.or.id untuk kategori ${item.category || 'Inspirasi'}. Salurkan infak terbaik Anda secara amanah via QRIS...`
                     }
                   </p>
 
