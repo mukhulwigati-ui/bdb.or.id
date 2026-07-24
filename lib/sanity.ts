@@ -1,6 +1,6 @@
 import { createClient } from '@sanity/client';
 const coreConfig = {
-projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'AKUN_BARU_ANDA',
+projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29gg6v',
 dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
 apiVersion: '2026-07-18',
 };

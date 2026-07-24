@@ -80,7 +80,7 @@ function PwaModalManager() {
         </div>
 
         <div className="space-y-1">
-          <h3 className="text-lg font-bold text-slate-900">Install Aplikasi YIIC</h3>
+          <h3 className="text-lg font-bold text-slate-900">Install Aplikasi bdb.or.id</h3>
           <p className="text-xs text-slate-500 leading-relaxed px-2">
             Dapatkan kemudahan akses sedekah, infaq, dan zakat lebih cepat langsung dari layar utama perangkat Anda tanpa perlu buka browser.
           </p>
