@@ -6,7 +6,6 @@ import TotalAccumulationWidget from '@/components/TotalAccumulationWidget';
 import Campaign from '@/components/Campaign';
 import News from '@/components/News';
 import Footer from '@/components/Footer';
-import LiveDonationNotification, { Donation } from '@/components/LiveDonationNotification';
 
 // 🚀 INITIALIZE SANITY CLIENT (Murni dari Environment Variables tanpa fallback ID lama)
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
@@ -31,10 +30,9 @@ export default async function HomePage() {
   let mendesakPrograms: any[] = [];
   let unggulanPrograms: any[] = [];
   let pilihanPrograms: any[] = [];
-  let liveDonations: Donation[] = [];
 
   try {
-    // 🚀 Jalankan pengambilan data secara paralel untuk Hero Banners, Campaign, dan Donatur (Live Notification)
+    // 🚀 Jalankan pengambilan data secara paralel untuk Hero Banners dan Campaign
     const query = `{
       "heroBanners": *[_type in ["heroBanner", "banner"] && active != false] | order(order asc, _createdAt desc)[0...10] {
         "id": _id,
@@ -91,36 +89,12 @@ export default async function HomePage() {
     unggulanPrograms = data.unggulan || [];
     pilihanPrograms = data.pilihan || [];
 
-    // 🚀 Ekstraksi data donatur dari seluruh program untuk komponen LiveDonationNotification
-    const allPrograms = [...mendesakPrograms, ...unggulanPrograms, ...pilihanPrograms];
-    const extractedDonations: Donation[] = [];
-
-    allPrograms.forEach((prog: any) => {
-      if (prog.donors && Array.isArray(prog.donors)) {
-        prog.donors.forEach((d: any, idx: number) => {
-          extractedDonations.push({
-            id: d.orderId || `${prog.id}-${idx}`,
-            name: d.name || 'Hamba Allah',
-            amount: `Rp ${Number(d.amount || 0).toLocaleString('id-ID')}`,
-            program: prog.title || 'Program Kebaikan',
-            timeLabel: d.date || 'Baru saja',
-          });
-        });
-      }
-    });
-
-    // Urutkan dari yang terbaru (jika ada) dan ambil maksimal 15 data teratas
-    liveDonations = extractedDonations.slice(0, 15);
-
   } catch (err) {
     console.error('🔥 Gagal mengambil data homepage dari Sanity:', err);
   }
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-start w-full overflow-x-hidden pb-24">
-      {/* 🚀 Widget Notifikasi Live Donasi yang terhubung murni ke data Sanity terbaru */}
-      <LiveDonationNotification donations={liveDonations} />
-
       <div className="w-full max-w-md mx-auto px-3 py-4 space-y-4">
         
         {/* Pass data banners dari server component langsung ke Hero */}
