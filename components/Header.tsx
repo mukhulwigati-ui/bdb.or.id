@@ -13,7 +13,6 @@ export default function Header() {
   const pathname = usePathname();
 
   // 🚀 SEMBUNYIKAN HEADER UTAMA SAAT BERADA DI HALAMAN DETAIL CAMPAIGN
-  // Ini mencegah header double dengan DetailHeader (tombol Back & Share)
   if (pathname.startsWith('/campaign/')) {
     return null;
   }
@@ -32,11 +31,11 @@ export default function Header() {
         
         {/* 1. Logo Yayasan */}
         <Link href="/" className="flex items-center shrink-0">
-          <div className="relative h-8 w-auto flex items-center overflow-hidden">
+          <div className="relative h-9 w-auto flex items-center">
             <img 
               src="/images/logo-bdb.png" 
-              alt="Logo bdb.or.id" 
-              className="h-full w-auto object-contain brightness-0 invert" 
+              alt="Logo BDB" 
+              className="h-8 w-auto object-contain" 
             />
           </div>
         </Link>
@@ -55,7 +54,7 @@ export default function Header() {
           </div>
         </form>
 
-        {/* 3. Komponen Dropdown Notifikasi Canggih (Menggantikan ikon statis) */}
+        {/* 3. Komponen Dropdown Notifikasi */}
         <NotificationDropdown />
 
       </div>
