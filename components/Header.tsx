@@ -34,8 +34,8 @@ export default function Header() {
         <Link href="/" className="flex items-center shrink-0">
           <div className="relative h-8 w-auto flex items-center overflow-hidden">
             <img 
-              src="/images/logoyaibad.png" 
-              alt="Logo yaibadurrohman.or.id" 
+              src="/images/logo-bdb.png" 
+              alt="Logo bdb.or.id" 
               className="h-full w-auto object-contain brightness-0 invert" 
             />
           </div>
