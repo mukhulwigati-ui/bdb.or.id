@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbf9f6; /* Warna latar belakang lembut gading/krem hangat */
+  --foreground: #2b180d; /* Warna teks utama coklat tua gelap */
+  --primary-color: #4a2e1b; /* Coklat tua kopi elegan */
+  --gold-accent: #c59b27; /* Emas / bronze */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary-color);
+  --color-gold: var(--gold-accent);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
