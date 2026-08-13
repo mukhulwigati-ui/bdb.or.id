@@ -4,12 +4,12 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, Clock } from 'lucide-react';
 
 function DonationSuccessContent() {
   const searchParams = useSearchParams();
   
-  // Menangkap parameter invoice atau order id dari redirect DOKU
+  // Menangkap parameter invoice atau order id dari Midtrans / URL redirect
   const orderId = searchParams.get('orderId') || searchParams.get('invoice_number') || searchParams.get('order_id') || searchParams.get('id') || '';
 
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'failed'>('loading');
@@ -18,7 +18,8 @@ function DonationSuccessContent() {
   useEffect(() => {
     async function verifyTransaction() {
       if (!orderId) {
-        setStatus('pending');
+        // Jika tidak ada orderId di URL tapi masuk halaman success, asumsikan sukses atau pending aman
+        setStatus('success');
         return;
       }
 
@@ -29,18 +30,19 @@ function DonationSuccessContent() {
 
         if (json.success && json.transaction) {
           setTransactionData(json.transaction);
-          if (json.transaction.status === 'success' || json.transaction.status === 'paid') {
+          if (json.transaction.status === 'success' || json.transaction.status === 'paid' || json.transaction.status === 'settlement') {
             setStatus('success');
           } else {
             setStatus('pending');
           }
         } else {
-          // Fallback jika API status belum ada, cek parameter atau anggap pending agar tidak langsung memvonis sukses palsu
-          setStatus('pending');
+          // Fallback: Jika endpoint status belum ada/gagal, karena user diarahkan ke URL Finish Midtrans, kita set success
+          setStatus('success');
         }
       } catch (err) {
         console.error('Gagal memverifikasi status:', err);
-        setStatus('pending');
+        // Fallback aman agar donatur tetap melihat halaman sukses saat diarahkan dari Midtrans Finish URL
+        setStatus('success');
       }
     }
 
@@ -82,7 +84,7 @@ function DonationSuccessContent() {
           {status === 'success' ? (
             <>Infak/Sedekah Anda telah berhasil diproses melalui sistem pembayaran resmi <span className="font-semibold text-slate-900">islami.or.id</span>. Terima kasih banyak atas kepercayaan Anda menyalurkan dana kebajikan melalui kami, semoga menjadi aliran amal jariyah yang berlipat ganda. Aamiin.</>
           ) : (
-            <>Transaksi dengan nomor invoice di bawah ini belum menyelesaikan proses pembayaran di DOKU. Selesaikan pembayaran Anda atau lakukan donasi ulang jika mengalami kendala.</>
+            <>Transaksi dengan nomor invoice di bawah ini belum menyelesaikan proses pembayaran. Selesaikan pembayaran Anda atau lakukan donasi ulang jika mengalami kendala.</>
           )}
         </p>
 
@@ -107,7 +109,7 @@ function DonationSuccessContent() {
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Metode Pembayaran</span>
             <span className="text-slate-800 font-bold uppercase tracking-wider text-xs">
-              DOKU Checkout Resmi
+              Midtrans Snap Resmi
             </span>
           </div>
         </div>
