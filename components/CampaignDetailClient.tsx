@@ -438,14 +438,17 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
       const json = await res.json();
       
-      // 🚀 Integrasi Midtrans Snap Popup Pembayaran
+      // 🚀 Integrasi Midtrans Snap Popup Pembayaran dengan Penanganan Callbacks yang Benar
       if (json.success && json.token) {
         if (typeof window !== 'undefined' && window.snap) {
           window.snap.pay(json.token, {
             onSuccess: function (result: any) {
+              // Hanya dialihkan ke halaman sukses jika pembayaran benar-benar selesai/berhasil
               window.location.href = `/donation/success?orderId=${json.orderId}`;
             },
             onPending: function (result: any) {
+              // Jika transaksi tertunda (belum dibayar, misal metode QRIS/VA baru dimunculkan)
+              // Berikan opsi atau arahkan ke halaman pending/sukses dengan status pending
               window.location.href = `/donation/success?orderId=${json.orderId}`;
             },
             onError: function (result: any) {
@@ -453,6 +456,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               setSubmitting(false);
             },
             onClose: function () {
+              // JIKA POPUP DITUTUP SEBELUM BAYAR: Jangan redirect, cukup aktifkan tombol kembali!
               setSubmitting(false);
             }
           });
