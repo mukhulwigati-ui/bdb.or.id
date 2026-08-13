@@ -116,11 +116,12 @@ export default function RootLayout({
           }}
         />
 
-        {/* 🚀 MIDTRANS SNAP SCRIPT UTAMA */}
+        {/* 🚀 MIDTRANS SNAP SCRIPT UTAMA (Dioptimalkan agar tidak terblokir CSP) */}
         <Script
           src="https://app.midtrans.com/snap/snap.js"
           data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-NVjY5ccbH7M47czA"}
-          strategy="beforeInteractive"
+          strategy="lazyOnload"
+          crossOrigin="anonymous"
         />
 
         {/* 🚀 LAYOUT CLIENT WRAPPER (MEMUAT CHILDREN & PWA MODAL TENGAH) */}

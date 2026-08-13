@@ -1,5 +1,6 @@
 // app/api/donate/route.ts
 import { NextResponse } from 'next/server';
+// @ts-ignore
 import midtransClient from 'midtrans-client';
 import { createClient } from '@sanity/client';
 import { createServerClient } from '@supabase/ssr';
@@ -14,7 +15,6 @@ const serverClient = createClient({
 });
 
 // Inisialisasi Midtrans Snap API Client
-// Pastikan MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY ada di .env Anda
 const snap = new midtransClient.Snap({
   isProduction: process.env.MIDTRANS_ENV === 'production',
   serverKey: process.env.MIDTRANS_SERVER_KEY || '',
@@ -95,11 +95,12 @@ export async function POST(request: Request) {
       transactionId: orderId,
     });
 
-    // 4. Simpan ke Supabase
-    if (user) {
+    // 4. Simpan ke Supabase (Aman meskipun user tidak login / anonim)
+    try {
       await supabase.from('donations').insert([
         {
-          user_id: user.id,
+          user_id: user ? user.id : null,
+          donor_name: donorName || 'Hamba Allah',
           program_name: programTitle || 'Sedekah Umum',
           category: category || 'Kemanusiaan',
           amount: cleanAmount,
@@ -108,6 +109,8 @@ export async function POST(request: Request) {
           invoice_id: orderId,
         },
       ]);
+    } catch (supabaseError) {
+      console.warn('⚠️ Gagal mencatat ke tabel Supabase (Lanjut proses Midtrans):', supabaseError);
     }
 
     return NextResponse.json({

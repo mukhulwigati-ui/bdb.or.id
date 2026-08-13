@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   },
   turbopack: {},
   
-  // 🚀 PERBAIKAN: Menambahkan Content Security Policy (CSP) untuk mengizinkan Midtrans Snap
+  // 🚀 Content Security Policy (CSP) yang disesuaikan untuk Midtrans & Google Analytics
   async headers() {
     return [
       {
@@ -27,9 +27,9 @@ const nextConfig: NextConfig = {
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://app.midtrans.com https://app.sandbox.midtrans.com https://snap-assets.midtrans.com https://www.googletagmanager.com;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com;
-              frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com;
-              connect-src 'self' https://api.midtrans.com https://api.sandbox.midtrans.com https://www.google-analytics.com https://stats.g.doubleclick.net;
+              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com https://app.midtrans.com https://app.sandbox.midtrans.com;
+              frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com;
+              connect-src 'self' https://api.midtrans.com https://api.sandbox.midtrans.com https://app.midtrans.com https://app.sandbox.midtrans.com https://www.google-analytics.com https://stats.g.doubleclick.net;
             `.replace(/\s{2,}/g, ' ').trim(),
           },
         ],
