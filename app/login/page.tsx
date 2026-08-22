@@ -25,7 +25,7 @@ export default function LoginPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          router.replace('/'); // Alihkan otomatis jika sudah login
+          router.replace('/akun'); // Diarahkan ke halaman akun jika sudah login
         }
       } catch (err) {
         console.error('Error checking session:', err);
