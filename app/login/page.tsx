@@ -63,12 +63,16 @@ export default function LoginPage() {
   };
 
   const handleGoogleAuth = async () => {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { 
         redirectTo: `${window.location.origin}/auth/callback` 
       }
     });
+
+    if (error) {
+      alert(error.message);
+    }
   };
 
   return (
@@ -83,7 +87,7 @@ export default function LoginPage() {
           <button 
             type="button"
             onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            className="text-xs font-bold text-[#0d5c91] hover:underline"
+            className="text-xs font-bold text-[#0d5c91] hover:underline cursor-pointer"
           >
             {mode === 'login' ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk'}
           </button>
@@ -117,7 +121,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#0d5c91] hover:bg-sky-800 text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] disabled:opacity-70 text-sm"
+            className="w-full bg-[#0d5c91] hover:bg-sky-800 text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] disabled:opacity-70 text-sm cursor-pointer"
           >
             {loading ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar dengan Email'}
           </button>
@@ -133,8 +137,9 @@ export default function LoginPage() {
         </div>
 
         <button
+          type="button"
           onClick={handleGoogleAuth}
-          className="w-full flex items-center justify-center gap-2.5 border border-slate-200 hover:bg-slate-50 py-3 rounded-xl font-semibold text-slate-700 transition text-sm shadow-2xs"
+          className="w-full flex items-center justify-center gap-2.5 border border-slate-200 hover:bg-slate-50 py-3 rounded-xl font-semibold text-slate-700 transition text-sm shadow-2xs cursor-pointer"
         >
           <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
           <span>Daftar / Masuk dengan Google</span>
