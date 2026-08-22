@@ -11,11 +11,16 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com', // 🚀 Izinkan gambar profil Google
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   turbopack: {},
   
-  // 🚀 Content Security Policy (CSP) dengan tambahan Supabase & Midtrans
   async headers() {
     return [
       {
@@ -27,7 +32,7 @@ const nextConfig: NextConfig = {
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://app.midtrans.com https://app.sandbox.midtrans.com https://snap-assets.midtrans.com https://www.googletagmanager.com;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com https://app.midtrans.com https://app.sandbox.midtrans.com;
+              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com https://app.midtrans.com https://app.sandbox.midtrans.com https://*.googleusercontent.com https://*.gstatic.com;
               frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com;
               connect-src 'self' https://vnneqinjvfxqkukvcyzm.supabase.co https://api.midtrans.com https://api.sandbox.midtrans.com https://app.midtrans.com https://app.sandbox.midtrans.com https://www.google-analytics.com https://stats.g.doubleclick.net;
             `.replace(/\s{2,}/g, ' ').trim(),
