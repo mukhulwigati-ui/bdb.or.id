@@ -1,7 +1,7 @@
 // app/login/page.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
@@ -9,9 +9,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   
-  // Menggunakan useMemo agar client hanya dibuat sekali
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -19,12 +19,28 @@ export default function LoginPage() {
   
   const router = useRouter();
 
+  // 🚀 Cek apakah user sudah login, jika ya, langsung lempar ke beranda atau halaman akun
+  useEffect(() => {
+    async function checkUserSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          router.replace('/'); // Alihkan otomatis jika sudah login
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkUserSession();
+  }, [supabase, router]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     if (mode === 'register') {
-      // 🚀 Pendaftaran Akun Baru dengan Email & Password
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -40,12 +56,11 @@ export default function LoginPage() {
           router.push('/');
           router.refresh();
         } else {
-          alert('Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi atau langsung masuk jika verifikasi email dinonaktifkan.');
+          alert('Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi atau langsung masuk.');
           setMode('login');
         }
       }
     } else {
-      // 🚀 Proses Masuk (Login)
       const { error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -55,7 +70,7 @@ export default function LoginPage() {
         alert(error.message);
       } else {
         router.push('/');
-        router.refresh(); // Memastikan state autentikasi terupdate
+        router.refresh();
       }
     }
     
@@ -74,6 +89,15 @@ export default function LoginPage() {
       alert(error.message);
     }
   };
+
+  // Tampilkan loading sebentar saat memeriksa status login agar tidak berkedip
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-sm font-bold text-slate-500 animate-pulse">Memeriksa sesi...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
