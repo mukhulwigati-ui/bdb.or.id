@@ -47,14 +47,21 @@ export default function ReferralPage() {
               try {
                 const resStats = await fetch(`/api/fundraiser/stats?phone=${prof.phone}`);
                 const jsonStats = await resStats.json();
+                console.log("RESPON STATS AFILIASI:", jsonStats); // Cek console browser (F12)
                 if (jsonStats.success) {
                   setStats(jsonStats);
+                } else {
+                  // Berikan fallback objek kosong agar komponen statistik tetap tampil meskipun transaksi 0
+                  setStats({ totalEarnings: 0, donationCount: 0, history: [] });
                 }
               } catch (err) {
                 console.error('Gagal memuat statistik afiliasi:', err);
+                setStats({ totalEarnings: 0, donationCount: 0, history: [] });
               } finally {
                 setStatsLoading(false);
               }
+            } else {
+              setStats({ totalEarnings: 0, donationCount: 0, history: [] });
             }
           }
         }
@@ -146,8 +153,12 @@ export default function ReferralPage() {
           </div>
         ) : (
           <>
-            {/* Statistik Keuangan & Performa Afiliasi */}
-            {stats && stats.profile ? (
+            {/* Statistik Keuangan & Performa Afiliasi (Selalu Tampil dengan Fallback Data 0 jika kosong) */}
+            {statsLoading ? (
+              <div className="text-center py-6 bg-white rounded-2xl border border-slate-200 text-xs text-slate-400 animate-pulse">
+                Memuat statistik afiliasi...
+              </div>
+            ) : (
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
@@ -161,11 +172,11 @@ export default function ReferralPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Dana Dihimpun</span>
-                    <p className="text-base font-extrabold text-emerald-600">Rp {stats.totalEarnings.toLocaleString('id-ID')}</p>
+                    <p className="text-base font-extrabold text-emerald-600">Rp {(stats?.totalEarnings || 0).toLocaleString('id-ID')}</p>
                   </div>
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Transaksi</span>
-                    <p className="text-base font-extrabold text-slate-900">{stats.donationCount} Sukses</p>
+                    <p className="text-base font-extrabold text-slate-900">{stats?.donationCount || 0} Sukses</p>
                   </div>
                 </div>
 
@@ -173,23 +184,19 @@ export default function ReferralPage() {
                 <div className="bg-sky-50/50 p-3.5 rounded-2xl border border-sky-100 space-y-2 text-xs">
                   <div className="flex justify-between items-baseline">
                     <span className="font-semibold text-slate-600">Total Ujrah Hak Anda (10%)</span>
-                    <span className="font-bold text-slate-800">Rp {Math.round(stats.totalEarnings * 0.1).toLocaleString('id-ID')}</span>
+                    <span className="font-bold text-slate-800">Rp {Math.round((stats?.totalEarnings || 0) * 0.1).toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between items-baseline">
                     <span className="font-semibold text-amber-700">Fee Sudah Dibayarkan</span>
-                    <span className="font-bold text-amber-800">-Rp {(stats.profile.feePaid || 0).toLocaleString('id-ID')}</span>
+                    <span className="font-bold text-amber-800">-Rp {(stats?.profile?.feePaid || 0).toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between items-baseline border-t border-sky-200/60 pt-2 font-extrabold text-[#0d5c91]">
                     <span>Sisa Saldo Fee Tersedia</span>
-                    <span className="text-sm">Rp {Math.max(0, Math.round(stats.totalEarnings * 0.1) - (stats.profile.feePaid || 0)).toLocaleString('id-ID')}</span>
+                    <span className="text-sm">Rp {Math.max(0, Math.round((stats?.totalEarnings || 0) * 0.1) - (stats?.profile?.feePaid || 0)).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               </div>
-            ) : statsLoading ? (
-              <div className="text-center py-6 bg-white rounded-2xl border border-slate-200 text-xs text-slate-400 animate-pulse">
-                Memuat statistik afiliasi...
-              </div>
-            ) : null}
+            )}
 
             {/* Kotak Generator Link Afiliasi SEMUA CAMPAIGN */}
             <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
@@ -269,7 +276,7 @@ export default function ReferralPage() {
             </div>
 
             {/* Riwayat Dukungan Transaksi dari Referral */}
-            {stats && stats.history && stats.history.length > 0 && (
+            {stats && stats.history && stats.history.length > 0 ? (
               <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
                 <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">Riwayat Dukungan Referral</h3>
                 <div className="max-h-52 overflow-y-auto space-y-2 divide-y divide-slate-50">
@@ -287,6 +294,11 @@ export default function ReferralPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : (
+              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs text-center space-y-1">
+                <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">Riwayat Dukungan Referral</h3>
+                <p className="text-xs text-slate-400 py-3">Belum ada transaksi donasi melalui tautan afiliasi Anda.</p>
               </div>
             )}
           </>
