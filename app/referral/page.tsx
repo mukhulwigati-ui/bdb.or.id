@@ -1,4 +1,3 @@
-```tsx
 // app/referral/page.tsx
 'use client';
 
@@ -607,4 +606,3 @@ export default function ReferralPage() {
     </div>
   );
 }
-```
