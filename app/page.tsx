@@ -10,33 +10,33 @@ import Footer from '@/components/Footer';
 
 // 🚀 METADATA OPEN GRAPH UNTUK SOSIAL MEDIA SHARING
 export const metadata: Metadata = {
-  title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
-  description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
+  title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+  description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
   alternates: {
-    canonical: 'https://www.islami.or.id',
+    canonical: 'https://bdb.or.id',
   },
   openGraph: {
-    title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
-    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
-    url: 'https://www.islami.or.id',
-    siteName: 'Islami.or.id',
+    title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
+    url: 'https://bdb.or.id',
+    siteName: 'bdb.or.id',
     locale: 'id_ID',
     type: 'website',
     images: [
       {
-        url: 'https://www.islami.or.id/images/banner.png',
+        url: 'https://bdb.or.id/images/banner.png',
         width: 1200,
         height: 630,
-        alt: 'Islami.or.id - Platform Kebaikan',
+        alt: 'bdb.or.id - Balai Dakwah Banjarnegara - Platform Kebaikan',
         type: 'image/png',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
-    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
-    images: ['https://www.islami.or.id/images/banner.png'],
+    title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
+    images: ['https://bdb.or.id/images/banner.png'],
   },
 };
 

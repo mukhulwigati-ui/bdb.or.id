@@ -33,9 +33,9 @@ export default function Header() {
         <Link href="/" className="flex items-center shrink-0">
           <div className="relative h-8 w-auto flex items-center overflow-hidden">
             <img 
-              src="/images/logo-islami.png" 
-              alt="Logo islami.or.id" 
-              className="h-full w-auto object-contain brightness-0 invert" 
+              src="/images/logo-bdb.png" 
+              alt="Logo bdb.or.id" 
+              className="h-full w-auto object-contain" 
             />
           </div>
         </Link>
