@@ -4,8 +4,8 @@
   "description": "Platform Sedekah, Infaq & Zakat Online Amanah",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0d5c91",
+  "background_color": "#03452F",
+  "theme_color": "#07A73F",
   "icons": [
     {
       "src": "/images/icon-192x192.png",
