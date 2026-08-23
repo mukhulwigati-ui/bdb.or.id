@@ -25,7 +25,7 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#4a2e1b] text-white shadow-md border-b border-[#c59b27]/30">
+    <header className="sticky top-0 z-50 w-full bg-emerald-950 text-white shadow-md border-b border-emerald-900">
       {/* Container utama dikunci di max-w-md agar sejajar presisi dengan konten app mobile */}
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between gap-3">
         
