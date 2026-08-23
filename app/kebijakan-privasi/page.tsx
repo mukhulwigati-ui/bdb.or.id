@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 OPTIMASI SEO MASTER KEBIJAKAN PRIVASI
 export const metadata: Metadata = {
-  title: 'Kebijakan Privasi | Perlindungan Data Donatur yaibadurrohman.or.id',
-  description: 'Kebijakan privasi resmi yaibadurrohman.or.id. Pelajari bagaimana kami mengumpulkan, menggunakan, dan melindungi data pribadi serta informasi transaksi Anda secara aman.',
-  keywords: ['kebijakan privasi yaibadurrohman', 'keamanan data donatur', 'privasi yaibadurrohman.or.id', 'perlindungan data'],
+  title: 'Kebijakan Privasi | Perlindungan Data Donatur bdb.or.id',
+  description: 'Kebijakan privasi resmi bdb.or.id (Balai Dakwah Banjarnegara). Pelajari bagaimana kami mengumpulkan, menggunakan, dan melindungi data pribadi serta informasi transaksi Anda secara aman.',
+  keywords: ['kebijakan privasi bdb', 'balai dakwah banjarnegara', 'keamanan data donatur', 'privasi bdb.or.id', 'perlindungan data'],
   alternates: {
     canonical: '/kebijakan-privasi',
   },
@@ -35,7 +35,7 @@ export default function KebijakanPrivasiPage() {
         {/* ISI KONTEN PRIVASI (Ukuran font diperbesar agar nyaman dibaca) */}
         <div className="text-slate-800 text-sm sm:text-base leading-relaxed space-y-5 text-left">
           <p>
-            Yayasan <strong>yaibadurrohman.or.id</strong> berkomitmen penuh untuk menghormati dan melindungi setiap informasi pribadi yang Anda percayakan kepada kami. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, mengelola, menggunakan, dan mengamankan data pribadi Anda saat menggunakan platform digital kami.
+            Yayasan <strong>bdb.or.id</strong> (Balai Dakwah Banjarnegara) berkomitmen penuh untuk menghormati dan melindungi setiap informasi pribadi yang Anda percayakan kepada kami. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, mengelola, menggunakan, dan mengamankan data pribadi Anda saat menggunakan platform digital kami.
           </p>
           <p>
             Kami memastikan bahwa pengumpulan data dilakukan demi meningkatkan efisiensi pelayanan, transparansi pelaporan, serta kepatuhan penuh terhadap regulasi perlindungan data privasi yang berlaku.

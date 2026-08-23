@@ -21,13 +21,13 @@ const sanityClient = createClient({
 });
 
 // ===================================================================
-// META DATA SEO (OPEN GRAPH & METADATA LENGKAP YAIBADURROHMAN)
+// META DATA SEO (OPEN GRAPH & METADATA LENGKAP BDB)
 // ===================================================================
 export const metadata: Metadata = {
-  title: 'Peta Situs Resmi (Sitemap) | yaibadurrohman.or.id',
-  description: 'Indeks navigasi lengkap seluruh program donasi, zakat digital, infak kemanusiaan, wakaf, dan kabar berita pembaruan yaibadurrohman.or.id.',
+  title: 'Peta Situs Resmi (Sitemap) | bdb.or.id',
+  description: 'Indeks navigasi lengkap seluruh program donasi, zakat digital, infak kemanusiaan, wakaf, dan kabar berita pembaruan bdb.or.id (Balai Dakwah Banjarnegara).',
   alternates: {
-    canonical: 'https://www.yaibadurrohman.or.id/peta-situs',
+    canonical: 'https://bdb.or.id/peta-situs',
   },
   robots: {
     index: true,
@@ -42,10 +42,10 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Peta Situs Resmi (Sitemap) | yaibadurrohman.or.id',
-    description: 'Akses cepat seluruh struktur halaman program kebaikan dan transparansi laporan yaibadurrohman.or.id.',
-    url: 'https://www.yaibadurrohman.or.id/peta-situs',
-    siteName: 'yaibadurrohman.or.id',
+    title: 'Peta Situs Resmi (Sitemap) | bdb.or.id',
+    description: 'Akses cepat seluruh struktur halaman program kebaikan dan transparansi laporan bdb.or.id.',
+    url: 'https://bdb.or.id/peta-situs',
+    siteName: 'bdb.or.id',
     locale: 'id_ID',
     type: 'website',
   },
@@ -82,7 +82,7 @@ export default async function PetaSitusPage() {
     { title: 'Kalkulator Zakat Otomatis', url: '/zakat' },
     { title: 'Portal Fundraiser & Statistik', url: '/fundraiser/stats' },
     { title: 'Tentang Kami & Legalitas', url: '/tentang-kami' },
-    { title: 'Hubungi Kami (Layanan Amil)', url: '/hubungi-kami' },
+    { title: 'Hubungi Kami (Layanan Amil)', url: '/kontak' },
   ];
 
   return (
@@ -96,7 +96,7 @@ export default async function PetaSitusPage() {
             🗺️ Peta Situs Resmi (HTML Sitemap)
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-slate-800">yaibadurrohman.or.id</span> secara transparan.
+            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-slate-800">bdb.or.id</span> secara transparan.
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export default async function PetaSitusPage() {
               {halamanInti.map((item, idx) => (
                 <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
                   <a href={item.url} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
-                    {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id${item.url}`}</span>
+                    {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://bdb.or.id${item.url}`}</span>
                   </a>
                 </li>
               ))}
@@ -129,7 +129,7 @@ export default async function PetaSitusPage() {
                 {programs.map((item, idx) => (
                   <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
                     <a href={`/campaign/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
-                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/campaign/${item.slug}`}</span>
+                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://bdb.or.id/campaign/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
@@ -149,7 +149,7 @@ export default async function PetaSitusPage() {
                 {news.map((item, idx) => (
                   <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
                     <a href={`/news/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
-                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/news/${item.slug}`}</span>
+                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://bdb.or.id/news/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
@@ -163,7 +163,7 @@ export default async function PetaSitusPage() {
 
         {/* FOOTER METRICS INFO */}
         <div className="text-center text-xs text-slate-400 font-medium tracking-wide pt-2">
-          © {new Date().getFullYear()} yaibadurrohman.or.id. Nilai tautan peta situs dipetakan otomatis terintegrasi skema indeks.
+          © {new Date().getFullYear()} bdb.or.id. Nilai tautan peta situs dipetakan otomatis terintegrasi skema indeks.
         </div>
 
       </div>

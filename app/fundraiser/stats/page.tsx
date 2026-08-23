@@ -75,7 +75,7 @@ function FundraiserStatsContent() {
           <TrendingUp className="w-5 h-5" />
         </div>
         <h1 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">Performa Afiliasi</h1>
-        <p className="text-[11px] text-gray-500">Cek total perolehan dana dari tautan program yaibadurrohman.or.id Anda</p>
+        <p className="text-[11px] text-gray-500">Cek total perolehan dana dari tautan program bdb.or.id Anda</p>
       </div>
 
       {/* Form Pengecekan */}

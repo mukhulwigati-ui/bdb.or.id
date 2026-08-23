@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 MASTER SEO METADATA
 export const metadata: Metadata = {
-  title: 'FAQ / Pertanyaan Umum | islami.or.id',
-  description: 'Temukan jawaban atas pertanyaan seputar cara berdonasi, pembayaran QRIS, penyaluran zakat, infak, dan sedekah online di islami.or.id.',
-  keywords: ['faq islami.or.id', 'cara sedekah online', 'pertanyaan seputar zakat', 'bantuan donasi'],
+  title: 'FAQ / Pertanyaan Umum | bdb.or.id',
+  description: 'Temukan jawaban atas pertanyaan seputar cara berdonasi, pembayaran QRIS, penyaluran zakat, infak, dan sedekah online di bdb.or.id (Balai Dakwah Banjarnegara).',
+  keywords: ['faq bdb', 'balai dakwah banjarnegara', 'cara sedekah online', 'pertanyaan seputar zakat', 'bantuan donasi'],
   alternates: {
     canonical: '/faq',
   },
@@ -20,11 +20,11 @@ interface FaqItem {
 
 const faqList: FaqItem[] = [
   {
-    question: 'Bagaimana cara melakukan donasi atau sedekah di islami.or.id?',
+    question: 'Bagaimana cara melakukan donasi atau sedekah di bdb.or.id?',
     answer: 'Anda cukup memilih program kebaikan atau campaign yang ingin didukung, tentukan nominal donasi, isi data diri (atau pilih opsi Hamba Allah), lalu ikuti instruksi pembayaran instan melalui QRIS atau Virtual Account yang tersedia.',
   },
   {
-    question: 'Apakah transaksi donasi di islami.or.id aman dan terpercaya?',
+    question: 'Apakah transaksi donasi di bdb.or.id aman dan terpercaya?',
     answer: 'Ya, seluruh transaksi dikelola secara transparan dan amanah menggunakan sistem pembayaran terstandarisasi serta terhubung langsung dengan pencatatan program sosial kemanusiaan.',
   },
   {
@@ -56,7 +56,7 @@ export default function FaqPage() {
             Pertanyaan yang Sering Diajukan
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-            Temukan jawaban lengkap seputar prosedur donasi, transparansi penyaluran, dan layanan platform islami.or.id di sini.
+            Temukan jawaban lengkap seputar prosedur donasi, transparansi penyaluran, dan layanan platform bdb.or.id di sini.
           </p>
         </div>
 

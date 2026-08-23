@@ -4,8 +4,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Pusat Bantuan | islami.or.id',
-  description: 'Butuh bantuan terkait layanan donasi, metode pembayaran, atau informasi platform? Tim Admin islami.or.id siap membantu kebutuhan Anda.',
+  title: 'Pusat Bantuan | bdb.or.id',
+  description: 'Butuh bantuan terkait layanan donasi, metode pembayaran, atau informasi platform? Tim Admin bdb.or.id siap membantu kebutuhan Anda.',
   alternates: {
     canonical: '/bantuan',
   },
@@ -26,7 +26,7 @@ export default function BantuanPage() {
             Bagaimana Kami Bisa Membantu?
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-            Temukan panduan cepat atau hubungi tim operasional kami untuk kendala seputar donasi, pembayaran, dan layanan digital di islami.or.id.
+            Temukan panduan cepat atau hubungi tim operasional kami untuk kendala seputar donasi, pembayaran, dan layanan digital di bdb.or.id.
           </p>
         </div>
 
@@ -45,7 +45,7 @@ export default function BantuanPage() {
           <div className="border border-slate-200 p-3.5 space-y-1.5 hover:border-sky-500 transition-colors">
             <h3 className="font-bold text-slate-900 text-sm sm:text-base">Metode Pembayaran</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Informasi lengkap seputar pembayaran via QRIS, Virtual Account (VA), dan dompet digital yang didukung secara otomatis via DOKU.
+              Informasi lengkap seputar pembayaran via QRIS, Virtual Account (VA), dan dompet digital yang didukung secara otomatis.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function BantuanPage() {
           <div className="border border-slate-200 p-3.5 space-y-1.5 hover:border-sky-500 transition-colors">
             <h3 className="font-bold text-slate-900 text-sm sm:text-base">FAQ Umum</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Jawaban atas pertanyaan-pertanyaan yang paling sering diajukan oleh para dermawan kepada tim islami.or.id.
+              Jawaban atas pertanyaan-pertanyaan yang paling sering diajukan oleh para dermawan kepada tim bdb.or.id.
             </p>
           </div>
         </div>
@@ -75,14 +75,14 @@ export default function BantuanPage() {
           
           <div className="flex flex-col gap-2.5">
             <Link 
-              href="https://wa.me/6281234567890" 
+              href="https://wa.me/6281225147373" 
               target="_blank"
               className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition shadow-sm"
             >
               Chat via WhatsApp (Respon Cepat) 💬
             </Link>
             <div className="text-center text-xs text-sky-200">
-              Atau kirim email ke: info@islami.or.id
+              Atau kirim email ke: support@bdb.or.id
             </div>
           </div>
         </div>

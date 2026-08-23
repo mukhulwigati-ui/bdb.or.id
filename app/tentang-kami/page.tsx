@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 OPTIMASI SEO HALAMAN TENTANG KAMI
 export const metadata: Metadata = {
-  title: 'Tentang Kami | Profil Lembaga Resmi Yayasan Wasilah Hidayah Nusantara',
-  description: 'Mengenal lebih dekat Yayasan Wasilah Hidayah Nusantara (yaibadurrohman.or.id), lembaga sosial kemanusiaan dan keagamaan yang berkhidmat untuk kemaslahatan ummat, pendidikan quran, serta pemberdayaan dhuafa.',
-  keywords: ['profil yayasan wasilah hidayah nusantara', 'tentang yaibadurrohman', 'lembaga sosial amanah', 'sedekah online'],
+  title: 'Tentang Kami | Profil Lembaga Resmi Balai Dakwah Banjarnegara',
+  description: 'Mengenal lebih dekat Balai Dakwah Banjarnegara (bdb.or.id), lembaga sosial kemanusiaan dan keagamaan yang berkhidmat untuk kemaslahatan ummat, pendidikan quran, serta pemberdayaan dhuafa.',
+  keywords: ['profil balai dakwah banjarnegara', 'tentang bdb', 'bdb.or.id', 'lembaga sosial amanah', 'sedekah online'],
   alternates: {
     canonical: '/tentang-kami',
   },
@@ -30,7 +30,7 @@ export default function TentangKamiPage() {
               Mengalirkan Keberkahan, Wujudkan Kesejahteraan Ummat
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100/90 font-light leading-relaxed">
-              Yayasan Wasilah Hidayah Nusantara hadir sebagai jembatan amanah untuk mengelola dan mendistribusikan Zakat, Infaq, Sedekah, serta Wakaf secara transparan, profesional, dan akuntabel.
+              Balai Dakwah Banjarnegara (bdb.or.id) hadir sebagai jembatan amanah untuk mengelola dan mendistribusikan Zakat, Infaq, Sedekah, serta Wakaf secara transparan, profesional, dan akuntabel.
             </p>
           </div>
         </div>
@@ -42,10 +42,10 @@ export default function TentangKamiPage() {
               Siapa Kami?
             </h2>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              <strong className="text-emerald-700 font-bold">Yayasan Wasilah Hidayah Nusantara (yaibadurrohman.or.id)</strong> adalah lembaga sosial kemanusiaan dan pengelolaan dana filantropi Islam yang berkomitmen penuh dalam menggerakkan kepedulian masyarakat. Kami fokus pada pendayagunaan dana ziswaf yang disalurkan secara produktif, tepat sasaran, dan membawa dampak nyata jangka panjang bagi para penerima manfaat.
+              <strong className="text-emerald-700 font-bold">Balai Dakwah Banjarnegara (bdb.or.id)</strong> adalah lembaga sosial kemanusiaan dan pengelolaan dana filantropi Islam yang berkomitmen penuh dalam menggerakkan kepedulian masyarakat. Kami fokus pada pendayagunaan dana ziswaf yang disalurkan secara produktif, tepat sasaran, dan membawa dampak nyata jangka panjang bagi para penerima manfaat.
             </p>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              Berawal dari gerakan kepedulian terhadap pendidikan Al-Quran, pengentasan kemiskinan dhuafa, serta aksi tanggap kemanusiaan, kami terus bertransformasi mengadopsi integrasi teknologi digital otomasi pembayaran untuk memudahkan ribuan donatur mengalirkan kebaikan mereka kapan saja dan di mana saja.
+              Berawal dari gerakan kepedulian terhadap pendidikan Al-Quran, pengentasan kemiskinan dhuafa, serta aksi tanggap kemanusiaan di wilayah Banjarnegara, kami terus bertransformasi mengadopsi integrasi teknologi digital otomasi pembayaran untuk memudahkan ribuan donatur mengalirkan kebaikan mereka kapan saja dan di mana saja.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default function TentangKamiPage() {
           <div className="bg-white border border-slate-200 p-4 sm:p-5 space-y-2">
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">Legalitas Resmi</h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Seluruh operasional penyaluran infak, pengelolaan zakat maal/fitrah, dan kampanye sosial berada di bawah payung hukum legalitas resmi Yayasan Wasilah Hidayah Nusantara serta diawasi secara syariah untuk menjamin keabsahan penyaluran dana ummat.
+              Seluruh operasional penyaluran infak, pengelolaan zakat maal/fitrah, dan kampanye sosial berada di bawah payung hukum resmi Balai Dakwah Banjarnegara (bdb.or.id) serta diawasi secara syariah untuk menjamin keabsahan penyaluran dana ummat.
             </p>
           </div>
 

@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 // 🚀 MASTER SEO METADATA
 export const metadata: Metadata = {
-  title: 'Hubungi Kami | Layanan Donatur islami.or.id',
-  description: 'Memiliki pertanyaan mengenai program infak, sedekah subuh, atau cara pembayaran QRIS? Hubungi tim admin resmi islami.or.id sekarang.',
-  keywords: ['kontak islami.or.id', 'nomor whatsapp islami', 'alamat islami.or.id', 'layanan donatur'],
+  title: 'Hubungi Kami | Layanan Donatur bdb.or.id',
+  description: 'Memiliki pertanyaan mengenai program infak, sedekah subuh, atau cara pembayaran QRIS? Hubungi tim admin resmi bdb.or.id (Balai Dakwah Banjarnegara) sekarang.',
+  keywords: ['kontak bdb', 'balai dakwah banjarnegara', 'nomor whatsapp bdb', 'alamat bdb.or.id', 'layanan donatur'],
   alternates: {
     canonical: '/kontak',
   },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function KontakPage() {
   // Nomor WA resmi tanpa spasi/minus untuk integrasi API chat langsung
   const officialWa = '6281225147373';
-  const defaultText = encodeURIComponent('Assalamualaikum Admin islami.or.id, saya ingin bertanya mengenai...');
+  const defaultText = encodeURIComponent('Assalamualaikum Admin bdb.or.id, saya ingin bertanya mengenai...');
   const waChatUrl = `https://api.whatsapp.com/send?phone=${officialWa}&text=${defaultText}`;
 
   return (
@@ -33,7 +33,7 @@ export default function KontakPage() {
             Hubungi Tim Kantor Kami
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-            Pintu komunikasi kami selalu terbuka lebar. Jangan ragu untuk mendiskusikan kebutuhan konsultasi zakat maal maupun kerja sama program kebaikan bersama kami.
+            Pintu komunikasi kami selalu terbuka lebar. Jangan ragu untuk mendiskusikan kebutuhan konsultasi zakat maal maupun kerja sama program kebaikan bersama Balai Dakwah Banjarnegara.
           </p>
         </div>
 
@@ -52,8 +52,8 @@ export default function KontakPage() {
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">Alamat Pusat</h4>
                   <p className="text-xs sm:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                    Kantor Pelayanan islami.or.id <br />
-                    Indonesia
+                    Kantor Pelayanan bdb.or.id <br />
+                    Banjarnegara, Indonesia
                   </p>
                 </div>
               </div>
@@ -63,7 +63,7 @@ export default function KontakPage() {
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">Email Korespondensi</h4>
                   <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                    support@islami.or.id
+                    support@bdb.or.id
                   </p>
                 </div>
               </div>
@@ -92,7 +92,7 @@ export default function KontakPage() {
               Konsultasi Instan WhatsApp
             </h2>
             <p className="text-xs sm:text-sm text-emerald-800/80 leading-relaxed font-medium">
-              Lebih menyukai obrolan cepat melalui aplikasi ponsel? Hubungi nomor WhatsApp resmi penanganan layanan donatur kami untuk mendapatkan panduan cepat dari tim Customer Support islami.or.id.
+              Lebih menyukai obrolan cepat melalui aplikasi ponsel? Hubungi nomor WhatsApp resmi penanganan layanan donatur kami untuk mendapatkan panduan cepat dari tim Customer Support bdb.or.id.
             </p>
             
             <div className="bg-white border border-emerald-200 p-3.5">
