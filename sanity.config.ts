@@ -18,7 +18,7 @@ export default defineConfig([
     name: 'Balai-Dakwah-Banjarnegara',
     title: 'bdb.or.id',
     // 🚀 HARDCODE LANGSUNG DI SINI TANPA OR (||)
-    projectId: 'ks29ggv6',
+    projectId: 'ks29gg6v',
     dataset: 'production',
     basePath: '/studio',
 
