@@ -30,11 +30,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: `
               default-src 'self';
-              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://app.midtrans.com https://app.sandbox.midtrans.com https://snap-assets.midtrans.com https://www.googletagmanager.com;
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://app.midtrans.com https://app.sandbox.midtrans.com https://snap-assets.midtrans.com https://www.googletagmanager.com https://*.sanity.io;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com https://app.midtrans.com https://app.sandbox.midtrans.com https://*.googleusercontent.com https://*.gstatic.com;
+              font-src 'self' data: https://design-system-static.sanity.io;
+              img-src 'self' data: https://cdn.sanity.io https://www.google-analytics.com https://app.midtrans.com https://app.sandbox.midtrans.com https://*.googleusercontent.com https://*.gstatic.com https://*.sanity.io;
               frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com;
-              connect-src 'self' https://vnneqinjvfxqkukvcyzm.supabase.co https://api.midtrans.com https://api.sandbox.midtrans.com https://app.midtrans.com https://app.sandbox.midtrans.com https://www.google-analytics.com https://stats.g.doubleclick.net;
+              connect-src 'self' https://vnneqinjvfxqkukvcyzm.supabase.co https://api.midtrans.com https://api.sandbox.midtrans.com https://app.midtrans.com https://app.sandbox.midtrans.com https://www.google-analytics.com https://stats.g.doubleclick.net https://ks29ggv6.api.sanity.io https://ks29ggv6.sanity.io wss://ks29ggv6.api.sanity.io https://*.sanity.io;
             `.replace(/\s{2,}/g, ' ').trim(),
           },
         ],
