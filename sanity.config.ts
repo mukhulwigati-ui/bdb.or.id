@@ -13,13 +13,13 @@ const emeraldTheme = buildLegacyTheme({
   '--focus-color': '#fbbf24',
 });
 
-// 🚀 MENGGUNAKAN ID WORKSPACE YANG SESUAI DENGAN PERMINTAAN LENGKAP ANDA
 export default defineConfig([
   {
-    name: 'Balai-Dakwah-Banjarnegara', // ➔ Menggantikan nama workspace internal
-    title: 'bdb.or.id', // ➔ Nama utama di dropdown menu Sanity Studio
-    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29ggv6',
-    dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
+    name: 'Balai-Dakwah-Banjarnegara',
+    title: 'bdb.or.id',
+    // 🚀 HARDCODE LANGSUNG DI SINI TANPA OR (||)
+    projectId: 'ks29ggv6',
+    dataset: 'production',
     basePath: '/studio',
 
     plugins: [structureTool()],
