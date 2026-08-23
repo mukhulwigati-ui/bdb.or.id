@@ -17,7 +17,6 @@ export default defineConfig([
   {
     name: 'Balai-Dakwah-Banjarnegara',
     title: 'bdb.or.id',
-    // 🚀 HARDCODE LANGSUNG DI SINI TANPA OR (||)
     projectId: 'ks29gg6v',
     dataset: 'production',
     basePath: '/studio',
@@ -40,12 +39,13 @@ export default defineConfig([
               'div',
               {
                 style: {
-                  background: '#e6f7f0', 
+                  // 🚀 Diubah menjadi hijau yang jauh lebih gelap agar logo lebih jelas & kontras
+                  background: '#064e3b', 
                   padding: '16px 24px',
                   display: 'flex',
                   alignItems: 'center',
-                  borderBottom: '1px solid #c2ebd9',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                  borderBottom: '1px solid #022c22',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                 }
               },
               React.createElement('img', {
@@ -55,7 +55,9 @@ export default defineConfig([
                   height: '52px', 
                   width: 'auto',
                   objectFit: 'contain',
-                  display: 'block'
+                  display: 'block',
+                  // Jika logo Anda berwarna putih/terang, ini akan membuatnya semakin pas
+                  filter: 'brightness(0) invert(1)', 
                 }
               })
             ),
