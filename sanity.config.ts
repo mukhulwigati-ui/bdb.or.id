@@ -18,7 +18,7 @@ export default defineConfig([
   {
     name: 'Balai-Dakwah-Banjarnegara', // ➔ Menggantikan nama workspace internal
     title: 'bdb.or.id', // ➔ Nama utama di dropdown menu Sanity Studio
-    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ID_PROJECT_ANDA',
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29ggv6',
     dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
     basePath: '/studio',
 
