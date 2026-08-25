@@ -10,7 +10,7 @@ const client = createClient({
   dataset: 'production',
   useCdn: false,
   apiVersion: '2026-07-18',
-  token: process.env.SANITY_API_WRITE_TOKEN || 'skbUdLQ52xjHnZ572kuGEMTdW7ulGwIvfxcWXuRwDOgT1pta3lpBMQw8UgItnt9ZpZSdwNpFNAC6fXvbfNi8SqkfQFRgPNfezrVedkpPYdTHAdaXBTbYcDmvlbhDiDjlZINLRyWf2GSjWqWbzKwAy29YhScKGo01quOqnZIXoc0GjJhzna6Z', 
+  token: process.env.SANITY_API_WRITE_TOKEN || 'skTkgR8oTccSIXr6lsYEhhShtcblvWtNod41Oq1DSARiIqwBqTEpWqaaO3AFWwLKCch2Z0SviYoIOftVnn6S37ypRTvvCPmHtC9fELz2EbMnlh0Vt70al8UZZHWE6y8VvsqRA2GUYo7uhz9WhdFWkG4BPwTbwotrE3KfB3MZthvBbIo6QxrK', 
 });
 
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const fundraiserPhone = body.fundraiserPhone || body.referral || '';
     
     // 🚀 PILIHAN METODE PEMBAYARAN PAKASIR (Default 'qris')
-    // Sesuai dokumentasi Pakasir: qris, bni_va, bri_va, permata_va, mandiri_va, dll.
+    // Pilihan metode yang didukung Pakasir: qris, bni_va, bri_va, permata_va, mandiri_va, cimb_niaga_va, dll.
     const paymentMethod = body.paymentMethod || 'qris';
     const cleanMethod = String(paymentMethod).toLowerCase().trim();
     
