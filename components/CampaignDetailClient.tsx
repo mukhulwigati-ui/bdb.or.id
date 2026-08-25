@@ -5,14 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
 import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client'; // 🚀 Menggunakan instance tunggal yang konsisten
-
-// Deklarasi global agar TypeScript mengenali window.snap dari Midtrans
-declare global {
-  interface Window {
-    snap: any;
-  }
-}
+import { supabase } from '@/lib/supabase/client'; 
 
 // ===================================================================
 // 1. HEADER KHUSUS DETAIL PROGRAM
@@ -21,11 +14,11 @@ function DetailHeader({ title = 'Program Donasi', onOpenShare }: { title?: strin
   const router = useRouter();
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0d5c91] text-white w-full shadow-sm">
+    <header className="sticky top-0 z-50 bg-emerald-950 text-white w-full shadow-sm border-b border-emerald-900">
       <div className="w-full max-w-md mx-auto px-4 h-14 flex items-center justify-between">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
+          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer rounded-lg"
           aria-label="Kembali"
         >
           <ArrowLeft className="w-5 h-5 text-white" />
@@ -37,7 +30,7 @@ function DetailHeader({ title = 'Program Donasi', onOpenShare }: { title?: strin
 
         <button
           onClick={onOpenShare}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
+          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer rounded-lg"
           aria-label="Bagikan"
         >
           <Share2 className="w-5 h-5 text-white" />
@@ -87,19 +80,19 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
       <div className="flex border-b border-gray-200 text-xs font-bold bg-gray-50">
         <button
           onClick={() => { setActiveTab('penghasilan'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'penghasilan' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'penghasilan' ? 'text-emerald-900 border-emerald-900 bg-white' : 'text-slate-500 border-transparent'}`}
         >
           PENGHASILAN
         </button>
         <button
           onClick={() => { setActiveTab('maal'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'maal' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'maal' ? 'text-emerald-900 border-emerald-900 bg-white' : 'text-slate-500 border-transparent'}`}
         >
           MAAL
         </button>
         <button
           onClick={() => { setActiveTab('emas'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'emas' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'emas' ? 'text-emerald-900 border-emerald-900 bg-white' : 'text-slate-500 border-transparent'}`}
         >
           EMAS
         </button>
@@ -111,7 +104,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
               <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Pendapatan Utama / Tabungan Per Bulan (Rp)</label>
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-emerald-900 rounded-lg"
                 placeholder="0"
                 value={input1}
                 onChange={(e) => setInput1(formatRupiah(e.target.value))}
@@ -121,7 +114,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
               <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Tunjangan / Bonus / THR (Rp)</label>
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-emerald-900 rounded-lg"
                 placeholder="0"
                 value={input2}
                 onChange={(e) => setInput2(formatRupiah(e.target.value))}
@@ -133,20 +126,20 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
             <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Total Berat Emas (Gram)</label>
             <input
               type="number"
-              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-emerald-900 rounded-lg"
               placeholder="Contoh: 90"
               value={input1}
               onChange={(e) => setInput1(e.target.value)}
             />
           </div>
         )}
-        <div className="bg-sky-50/60 border border-sky-100 p-4 text-center space-y-2 rounded-xl">
+        <div className="bg-emerald-50/60 border border-emerald-100 p-4 text-center space-y-2 rounded-xl">
           <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide block">Estimasi Wajib Zakat Anda</span>
-          <span className="text-xl sm:text-2xl font-extrabold text-[#0d5c91] block">Rp {totalZakat.toLocaleString('id-ID')}</span>
+          <span className="text-xl sm:text-2xl font-extrabold text-emerald-900 block">Rp {totalZakat.toLocaleString('id-ID')}</span>
           <button
             disabled={totalZakat <= 0}
             onClick={() => onApplyAmount(totalZakat.toLocaleString('id-ID'))}
-            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer rounded-lg"
+            className="w-full bg-emerald-900 hover:bg-emerald-950 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer rounded-lg"
           >
             Masukkan ke Form Nominal 📥
           </button>
@@ -158,7 +151,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI PROFESIONAL (SISTEM PROFILES TABEL)
+// 3. FORM DONASI PROFESIONAL (PAKASIR & PROFILES)
 // ===================================================================
 const DonationFormFields = ({
   profile,
@@ -180,7 +173,6 @@ const DonationFormFields = ({
 
   return (
     <div className="space-y-4 text-left">
-      {/* Pilihan Nominal Kotak-Kotak */}
       <div>
         <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Pilih Nominal Donasi</label>
         <div className="grid grid-cols-3 gap-2">
@@ -191,7 +183,7 @@ const DonationFormFields = ({
               onClick={() => setAmount(val.toLocaleString('id-ID'))}
               className={`py-3 px-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
                 cleanAmountNum === val
-                  ? 'bg-sky-50 text-[#0d5c91] border-[#0d5c91] shadow-2xs ring-1 ring-[#0d5c91]'
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-900 shadow-2xs ring-1 ring-emerald-900'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -201,7 +193,6 @@ const DonationFormFields = ({
         </div>
       </div>
 
-      {/* Input Nominal Lainnya */}
       <div>
         <label className="text-xs font-semibold text-slate-600 block mb-1">Masukkan Donasi Lainnya</label>
         <div className="relative flex items-center">
@@ -209,7 +200,7 @@ const DonationFormFields = ({
           <input
             type="text"
             placeholder="Min. 1.000"
-            className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91] rounded-xl bg-white"
+            className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-emerald-900 rounded-xl bg-white"
             value={amount}
             onChange={(e) => {
               const raw = e.target.value.replace(/[^0-9]/g, '');
@@ -221,10 +212,8 @@ const DonationFormFields = ({
 
       <hr className="border-slate-100 my-2" />
 
-      {/* 🚀 LOGIKA ALUR PROFIL & WHATSAPP BERDASARKAN KONSISTENSI SESSION */}
       {isLoggedIn ? (
         hasPhone ? (
-          /* KONDISI 1: SUDAH LOGIN & NOMOR WA ADA -> BERSIH TANPA FORM APA PUN */
           <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl flex items-center justify-between">
             <div className="space-y-0.5 overflow-hidden">
               <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">Login ✓ • {profile?.name}</span>
@@ -233,7 +222,6 @@ const DonationFormFields = ({
             <span className="text-[11px] bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-full shrink-0">Siap Donasi</span>
           </div>
         ) : (
-          /* KONDISI 2: SUDAH LOGIN TAPI NOMOR WA BELUM ADA -> MINTA ISI SEKALI SAJA */
           <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
             <div>
               <span className="text-xs font-bold text-amber-900 block mb-0.5">Halo, {profile?.name || 'Dermawan'}!</span>
@@ -243,7 +231,7 @@ const DonationFormFields = ({
               <input
                 type="tel"
                 placeholder="Contoh: 081234567890"
-                className="flex-1 border border-amber-300 px-3 py-2 text-xs font-semibold text-slate-900 rounded-lg bg-white focus:outline-[#0d5c91]"
+                className="flex-1 border border-amber-300 px-3 py-2 text-xs font-semibold text-slate-900 rounded-lg bg-white focus:outline-emerald-900"
                 value={inlinePhone}
                 onChange={(e) => setInlinePhone(e.target.value)}
               />
@@ -259,7 +247,6 @@ const DonationFormFields = ({
           </div>
         )
       ) : (
-        /* KONDISI 3: BELUM LOGIN (GUEST) -> TAMPILKAN INPUT MANUAL */
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">Nama Donatur</label>
@@ -284,7 +271,7 @@ const DonationFormFields = ({
         </div>
       )}
 
-      {/* Tombol Pembayaran */}
+      {/* Tombol Pembayaran Pakasir */}
       <button
         type="button"
         onClick={handleDonate}
@@ -298,7 +285,7 @@ const DonationFormFields = ({
 };
 
 // ===================================================================
-// 4. MAIN DETAIL CLIENT COMPONENT (MOBILE-FIRST)
+// 4. MAIN DETAIL CLIENT COMPONENT
 // ===================================================================
 interface CampaignDetailClientProps {
   slug: string;
@@ -310,7 +297,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('10.000'); 
   
-  // State Profile Database & Auth Session
   const [profile, setProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [inlinePhone, setInlinePhone] = useState('');
@@ -322,7 +308,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Menggunakan loadProfileFromDatabase dengan getSession() & onAuthStateChange()
   useEffect(() => {
     async function loadProfileFromDatabase() {
       try {
@@ -369,7 +354,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fungsi simpan nomor WA kilat dari dalam popup donasi
   const handleInlineSavePhone = async () => {
     const clean = inlinePhone.replace(/[^0-9]/g, '');
     if (clean.length < 9) {
@@ -399,6 +383,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     }
   };
 
+  // 🚀 INTEGRASI CHECKOUT MENGGUNAKAN API PAKASIR
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
@@ -413,64 +398,28 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       return;
     }
 
-    const resolvedProgramId = program?._id || program?.id;
-    if (!resolvedProgramId) {
-      alert('ID Program tidak ditemukan.');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const res = await fetch('/api/donate', {
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          programId: resolvedProgramId,
-          programTitle: program?.title || 'Sedekah Umum',
-          slug: program?.slug,
-          amount: cleanAmount,
+          slug: program?.slug || slug,
           donorName: profile?.name?.trim() || 'Hamba Allah',
-          phone: cleanPhone,
-          email: profile?.email?.trim() || '',
+          donorPhone: cleanPhone,
+          amount: cleanAmount,
+          paymentMethod: 'qris', // Default QRIS Pakasir
           fundraiserPhone: referral,
         }),
       });
 
       const json = await res.json();
       
-      // 🚀 Integrasi Midtrans Snap Popup Pembayaran dengan Penanganan Callbacks yang Benar
-      if (json.success && json.token) {
-        if (typeof window !== 'undefined' && window.snap) {
-          window.snap.pay(json.token, {
-            onSuccess: function (result: any) {
-              // Hanya dialihkan ke halaman sukses jika pembayaran benar-benar selesai/berhasil
-              window.location.href = `/donation/success?orderId=${json.orderId}`;
-            },
-            onPending: function (result: any) {
-              // Jika transaksi tertunda (belum dibayar, misal metode QRIS/VA baru dimunculkan)
-              // Berikan opsi atau arahkan ke halaman pending/sukses dengan status pending
-              window.location.href = `/donation/success?orderId=${json.orderId}`;
-            },
-            onError: function (result: any) {
-              alert("Pembayaran gagal, silakan coba lagi.");
-              setSubmitting(false);
-            },
-            onClose: function () {
-              // JIKA POPUP DITUTUP SEBELUM BAYAR: Jangan redirect, cukup aktifkan tombol kembali!
-              setSubmitting(false);
-            }
-          });
-        } else {
-          // Fallback jika script snap belum termuat
-          if (json.paymentUrl) {
-            window.location.href = json.paymentUrl;
-          } else {
-            alert('Midtrans Snap tidak tersedia.');
-            setSubmitting(false);
-          }
-        }
+      if (json.success && json.returnUrl) {
+        // Arahkan ke halaman terima kasih / sukses setelah transaksi Pakasir dibuat
+        window.location.href = json.returnUrl;
       } else {
-        alert(json.message || 'Gagal memproses transaksi.');
+        alert(json.error || 'Gagal memproses transaksi.');
         setSubmitting(false);
       }
     } catch (err) {
@@ -531,10 +480,8 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Header */}
       <DetailHeader title="Program Donasi" onOpenShare={() => setIsShareModalOpen(true)} />
 
-      {/* Konten Utama */}
       <div className="w-full max-w-md mx-auto px-3 pt-4 space-y-4">
         <div className="bg-white p-4 sm:p-6 shadow-sm border border-gray-200/90 space-y-4 rounded-xl">
           <div className="overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-inner rounded-xl">
@@ -546,7 +493,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           </h1>
 
           <div className="space-y-2 pt-1">
-            <p className="text-lg sm:text-xl font-extrabold text-[#0d5c91]">
+            <p className="text-lg sm:text-xl font-extrabold text-emerald-900">
               Rp {currentCollected.toLocaleString('id-ID')}
             </p>
             <div className="flex justify-between items-center text-xs sm:text-sm text-slate-500 font-medium">
@@ -563,19 +510,19 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           <div className="flex border-b border-gray-200 text-xs sm:text-sm font-bold text-slate-500 space-x-6 pt-2">
             <button
               onClick={() => setActiveTab('cerita')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'cerita' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'cerita' ? 'text-emerald-900 border-b-2 border-emerald-900' : 'border-b-2 border-transparent'}`}
             >
               Cerita
             </button>
             <button
               onClick={() => setActiveTab('donatur')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'donatur' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'donatur' ? 'text-emerald-900 border-b-2 border-emerald-900' : 'border-b-2 border-transparent'}`}
             >
               Donatur ({(program.donors || []).length})
             </button>
             <button
               onClick={() => setActiveTab('laporan')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'laporan' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'laporan' ? 'text-emerald-900 border-b-2 border-emerald-900' : 'border-b-2 border-transparent'}`}
             >
               Laporan ({(program.reports || []).length})
             </button>
@@ -609,7 +556,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                   [...program.donors].reverse().map((donor: any, idx: number) => (
                     <div key={idx} className="bg-gray-50 border border-gray-200/80 p-3.5 flex items-center justify-between rounded-xl">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-sky-100 text-[#0d5c91] flex items-center justify-center font-bold text-base shadow-inner rounded-full">
+                        <div className="w-10 h-10 bg-emerald-50 text-emerald-900 flex items-center justify-center font-bold text-base shadow-inner rounded-full">
                           {(donor.name || 'H').toUpperCase().slice(0, 1)}
                         </div>
                         <div>
@@ -617,7 +564,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                           <p className="text-xs text-slate-400 font-normal">{donor.date || 'Baru Saja'}</p>
                         </div>
                       </div>
-                      <p className="text-sm sm:text-base font-bold text-[#0d5c91]">{`+Rp ${Number(donor.amount || 0).toLocaleString('id-ID')}`}</p>
+                      <p className="text-sm sm:text-base font-bold text-emerald-900">{`+Rp ${Number(donor.amount || 0).toLocaleString('id-ID')}`}</p>
                     </div>
                   ))
                 ) : (
@@ -649,7 +596,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         </div>
       </div>
 
-      {/* Floating Bottom Bar ala Kitabisa */}
+      {/* Floating Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center pb-3">
         <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto rounded-2xl">
           <button 
@@ -661,7 +608,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         </div>
       </div>
 
-      {/* Modal Popup Donasi Ala Kitabisa */}
+      {/* Modal Popup Donasi */}
       {isMobileFormOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-3">
           <div className="absolute inset-0" onClick={() => setIsMobileFormOpen(false)} />
@@ -715,7 +662,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="bg-[#0d5c91] text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-sky-900 transition shadow-sm cursor-pointer rounded-lg"
+                  className="bg-emerald-900 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-emerald-950 transition shadow-sm cursor-pointer rounded-lg"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   <span>{copied ? 'Tersalin' : 'Salin'}</span>
