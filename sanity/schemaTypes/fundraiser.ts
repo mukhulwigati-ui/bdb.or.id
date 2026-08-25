@@ -18,6 +18,19 @@ export default defineType({
       type: 'string',
       validation: (Rule) => Rule.required().error('Nomor WhatsApp wajib diisi'),
     }),
+    defineField({
+      name: 'status',
+      title: 'Status Fundraiser',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Aktif', value: 'active' },
+          { title: 'Non-Aktif / Ditangguhkan', value: 'inactive' },
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'active',
+    }),
     
     // ===================================================================
     // 🚀 ARRAY OF REFERENCES (Mendukung Banyak Program)
@@ -68,16 +81,17 @@ export default defineType({
     }),
   ],
 
-  // 💡 Preview di Sanity Studio menampilkan Nama dan Nomor WhatsApp
   preview: {
     select: {
       title: 'name',
       phone: 'phone',
+      status: 'status',
     },
-    prepare({ title, phone }) {
+    prepare({ title, phone, status }) {
+      const statusLabel = status === 'inactive' ? '⛔ Non-Aktif' : '✅ Aktif';
       return {
         title: title || 'Tanpa Nama',
-        subtitle: phone || '-',
+        subtitle: `${phone || '-'} • ${statusLabel}`,
       };
     },
   },

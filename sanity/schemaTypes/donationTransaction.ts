@@ -32,7 +32,7 @@ export default defineType({
       name: 'programName',
       title: 'Nama Program / Kampanye',
       type: 'reference',
-      to: [{ type: 'program' }], // 🚀 Diubah dari 'campaign' menjadi 'program' agar sesuai dengan schemaTypes/program.ts
+      to: [{ type: 'program' }], 
     }),
     defineField({
       name: 'status',
@@ -50,13 +50,13 @@ export default defineType({
     }),
     defineField({
       name: 'paymentUrl',
-      title: 'URL Pembayaran DOKU',
+      title: 'URL Pembayaran Pakasir',
       type: 'string',
       readOnly: true,
     }),
     defineField({
       name: 'transactionId',
-      title: 'Transaction UUID DOKU',
+      title: 'ID Transaksi Gateway',
       type: 'string',
       readOnly: true,
     }),
