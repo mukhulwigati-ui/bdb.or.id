@@ -324,7 +324,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   
-  // State untuk Modal Instruksi Pembayaran Pakasir
   const [paymentData, setPaymentData] = useState<any>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -407,7 +406,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     }
   };
 
-  // 🚀 INTEGRASI CHECKOUT PAKASIR YANG BENAR (Tampilkan Modal Pembayaran)
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
@@ -441,8 +439,8 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       
       if (json.success) {
         setPaymentData(json);
-        setIsMobileFormOpen(false); // Tutup form input
-        setIsPaymentModalOpen(true); // Buka modal instruksi bayar Pakasir
+        setIsMobileFormOpen(false); 
+        setIsPaymentModalOpen(true); 
       } else {
         alert(json.error || 'Gagal memproses transaksi.');
       }
@@ -681,11 +679,14 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               <div className="space-y-3">
                 <p className="text-xs text-slate-600">Scan QRIS di bawah menggunakan aplikasi M-Banking atau E-Wallet Anda (QRIS Dinamis):</p>
                 <div className="bg-white p-3 border border-gray-200 inline-block rounded-xl shadow-sm">
-                  {/* Tampilkan QR jika berupa image URL atau text string */}
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(paymentData.paymentNumber)}`} 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(paymentData.paymentNumber)}`} 
                     alt="QRIS Donasi" 
                     className="w-48 h-48 mx-auto"
+                    onError={(e) => {
+                      // Fallback otomatis ke Google Chart QR API jika penyedia utama gagal
+                      (e.target as HTMLImageElement).src = `https://chart.googleapis.com/chart?cht=qr&chs=250x250&chl=${encodeURIComponent(paymentData.paymentNumber)}`;
+                    }}
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 break-all font-mono bg-gray-50 p-2 rounded">{paymentData.paymentNumber}</p>
