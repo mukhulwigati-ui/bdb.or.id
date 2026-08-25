@@ -9,14 +9,14 @@ import { useSearchParams } from 'next/navigation';
 function ThankYouContent() {
   const searchParams = useSearchParams();
   
-  // 🚀 DOKU COMPATIBILITY: Menangkap parameter invoice atau order id dari redirect DOKU
-  const orderId = searchParams.get('invoice_number') || searchParams.get('order_id') || searchParams.get('id') || 'INV-BDB-XXXXXX';
+  // Menangkap parameter order id atau invoice dari redirect Pakasir
+  const orderId = searchParams.get('order_id') || searchParams.get('invoice') || searchParams.get('id') || 'INV-BDB-XXXXXX';
 
   return (
-    <div className="w-full max-w-md bg-white border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between text-center space-y-5">
+    <div className="w-full max-w-md bg-white border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between text-center space-y-5 rounded-2xl">
       <div>
-        {/* Ikon Centang Estetik Tanpa Rounded */}
-        <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto mb-4 shadow-inner">
+        {/* Ikon Centang Estetik */}
+        <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto mb-4 shadow-inner rounded-xl">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-7 h-7">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
@@ -35,21 +35,21 @@ function ThankYouContent() {
         </p>
 
         {/* Kotak Status Detail Transaksi */}
-        <div className="bg-slate-50 border border-slate-200 p-4 space-y-2.5 text-left">
+        <div className="bg-slate-50 border border-slate-200 p-4 space-y-2.5 text-left rounded-xl">
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium">
             <span className="text-slate-400 uppercase tracking-wider">No. Invoice</span>
             <span className="text-slate-900 font-bold font-mono">{orderId}</span>
           </div>
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Status Dana</span>
-            <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 font-black text-xs uppercase tracking-wider border border-emerald-200">
+            <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 font-black text-xs uppercase tracking-wider border border-emerald-200 rounded-md">
               Paid / Success
             </span>
           </div>
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Metode Pembayaran</span>
             <span className="text-slate-800 font-bold uppercase tracking-wider text-xs">
-              DOKU Checkout Resmi
+              Pakasir Payment Gateway
             </span>
           </div>
         </div>
@@ -59,7 +59,7 @@ function ThankYouContent() {
       <div className="pt-2">
         <Link 
           href="/" 
-          className="block w-full text-center bg-[#0d5c91] hover:bg-sky-900 text-white font-bold py-3.5 transition text-xs sm:text-sm uppercase tracking-wider shadow-sm"
+          className="block w-full text-center bg-emerald-900 hover:bg-emerald-950 text-white font-bold py-3.5 transition text-xs sm:text-sm uppercase tracking-wider shadow-sm rounded-xl"
         >
           Kembali ke Beranda 🚀
         </Link>

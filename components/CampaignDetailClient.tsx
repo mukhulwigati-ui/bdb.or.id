@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck, QrCode, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client'; 
 
 // ===================================================================
@@ -158,6 +158,8 @@ const DonationFormFields = ({
   setProfile,
   amount,
   setAmount,
+  paymentMethod,
+  setPaymentMethod,
   handleDonate,
   handleInlineSavePhone,
   submitting,
@@ -208,6 +210,22 @@ const DonationFormFields = ({
             }}
           />
         </div>
+      </div>
+
+      {/* Pilih Metode Pembayaran Pakasir */}
+      <div>
+        <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Metode Pembayaran</label>
+        <select
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+          className="w-full border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 bg-white focus:outline-emerald-900 rounded-xl"
+        >
+          <option value="qris">QRIS (Semua E-Wallet / Mobile Banking)</option>
+          <option value="bni_va">Virtual Account BNI</option>
+          <option value="bri_va">Virtual Account BRI</option>
+          <option value="mandiri_va">Virtual Account Mandiri</option>
+          <option value="permata_va">Virtual Account Permata</option>
+        </select>
       </div>
 
       <hr className="border-slate-100 my-2" />
@@ -271,14 +289,13 @@ const DonationFormFields = ({
         </div>
       )}
 
-      {/* Tombol Pembayaran Pakasir */}
       <button
         type="button"
         onClick={handleDonate}
         disabled={submitting || (isLoggedIn && !hasPhone)}
         className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white font-extrabold py-4 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-xl mt-3"
       >
-        {submitting ? 'Memproses...' : 'Lanjut pembayaran'}
+        {submitting ? 'Memproses Tagihan...' : 'Lanjut pembayaran'}
       </button>
     </div>
   );
@@ -296,6 +313,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [program, setProgram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('10.000'); 
+  const [paymentMethod, setPaymentMethod] = useState('qris');
   
   const [profile, setProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -305,6 +323,12 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  
+  // State untuk Modal Instruksi Pembayaran Pakasir
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
@@ -383,7 +407,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     }
   };
 
-  // 🚀 INTEGRASI CHECKOUT MENGGUNAKAN API PAKASIR
+  // 🚀 INTEGRASI CHECKOUT PAKASIR YANG BENAR (Tampilkan Modal Pembayaran)
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
@@ -408,23 +432,24 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           donorName: profile?.name?.trim() || 'Hamba Allah',
           donorPhone: cleanPhone,
           amount: cleanAmount,
-          paymentMethod: 'qris', // Default QRIS Pakasir
+          paymentMethod: paymentMethod, 
           fundraiserPhone: referral,
         }),
       });
 
       const json = await res.json();
       
-      if (json.success && json.returnUrl) {
-        // Arahkan ke halaman terima kasih / sukses setelah transaksi Pakasir dibuat
-        window.location.href = json.returnUrl;
+      if (json.success) {
+        setPaymentData(json);
+        setIsMobileFormOpen(false); // Tutup form input
+        setIsPaymentModalOpen(true); // Buka modal instruksi bayar Pakasir
       } else {
         alert(json.error || 'Gagal memproses transaksi.');
-        setSubmitting(false);
       }
     } catch (err) {
       console.error(err);
       alert('Terjadi kesalahan koneksi.');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -625,6 +650,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
             <DonationFormFields 
               profile={profile} setProfile={setProfile}
               amount={amount} setAmount={setAmount}
+              paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
               handleDonate={handleDonate}
               handleInlineSavePhone={handleInlineSavePhone}
               submitting={submitting}
@@ -632,6 +658,79 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               inlinePhone={inlinePhone} setInlinePhone={setInlinePhone}
               savingPhone={savingPhone}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal Instruksi Pembayaran Pakasir */}
+      {isPaymentModalOpen && paymentData && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-3">
+          <div className="relative w-full max-w-md bg-white p-6 space-y-5 z-10 shadow-2xl border border-gray-200 rounded-2xl text-center">
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-slate-900">Selesaikan Pembayaran Anda</h3>
+              <p className="text-xs text-slate-500">No. Invoice: <span className="font-mono font-bold text-slate-800">{paymentData.orderId}</span></p>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-1">
+              <span className="text-xs text-emerald-800 block font-medium">Total Tagihan (Termasuk Kode Unik)</span>
+              <span className="text-2xl font-extrabold text-emerald-900">Rp {Number(paymentData.totalPayment || paymentData.amount).toLocaleString('id-ID')}</span>
+            </div>
+
+            {/* Jika QRIS */}
+            {paymentData.paymentMethod === 'qris' ? (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-600">Scan QRIS di bawah menggunakan aplikasi M-Banking atau E-Wallet Anda (QRIS Dinamis):</p>
+                <div className="bg-white p-3 border border-gray-200 inline-block rounded-xl shadow-sm">
+                  {/* Tampilkan QR jika berupa image URL atau text string */}
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(paymentData.paymentNumber)}`} 
+                    alt="QRIS Donasi" 
+                    className="w-48 h-48 mx-auto"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 break-all font-mono bg-gray-50 p-2 rounded">{paymentData.paymentNumber}</p>
+              </div>
+            ) : (
+              /* Jika Virtual Account */
+              <div className="space-y-3 text-left">
+                <label className="text-xs font-semibold text-slate-600 block text-center">Nomor Virtual Account ({paymentData.paymentMethod.toUpperCase()}):</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={paymentData.paymentNumber} 
+                    className="w-full bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-base font-mono font-bold text-center text-slate-800 rounded-xl"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(paymentData.paymentNumber);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                    }}
+                    className="bg-emerald-900 text-white px-4 py-2.5 text-xs font-bold rounded-xl hover:bg-emerald-950 shrink-0 cursor-pointer"
+                  >
+                    {copiedCode ? 'Disalin!' : 'Salin'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={() => {
+                  window.location.href = paymentData.returnUrl;
+                }}
+                className="w-full bg-emerald-900 hover:bg-emerald-950 text-white font-bold py-3 text-sm rounded-xl transition shadow-md cursor-pointer"
+              >
+                Cek Status / Selesai Membayar ✓
+              </button>
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-slate-700 font-semibold py-2.5 text-xs rounded-xl transition cursor-pointer"
+              >
+                Tutup / Bayar Nanti
+              </button>
+            </div>
           </div>
         </div>
       )}
