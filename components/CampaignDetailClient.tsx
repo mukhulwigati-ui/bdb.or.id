@@ -402,7 +402,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     }
   };
 
-  // 🚀 INTEGRASI METODE URL PAKASIR YANG AMAN & STABIL (Bagian B Panduan)
+  // 🚀 PERBAIKAN: Ganti slug 'depodomain' dengan slug asli proyek Pakasir Anda secara langsung
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
@@ -419,7 +419,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
     setSubmitting(true);
     try {
-      // 1. Catat transaksi ke backend/Sanity terlebih dahulu lewat API checkout
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -436,12 +435,11 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       const json = await res.json();
       
       if (json.success && json.orderId) {
-        // 2. Ambil slug proyek dari environment atau gunakan default slug Pakasir Anda
-        const projectSlug = process.env.NEXT_PUBLIC_PAKASIR_PROJECT_SLUG || 'depodomain';
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://bdb.or.id';
+        // Ganti 'balai-dakwah-banjarnegara' di bawah ini jika slug Pakasir Anda berbeda
+        const projectSlug = process.env.NEXT_PUBLIC_PAKASIR_PROJECT_SLUG || 'balai-dakwah-banjarnegara';
+        const siteUrl = window.location.origin; 
         const returnUrl = `${siteUrl}/thank-you?order_id=${json.orderId}`;
 
-        // 3. Arahkan langsung ke URL Pembayaran Resmi Pakasir (Otomatis menampilkan QRIS/VA dengan sempurna dari server Pakasir)
         let pakasirPayUrl = `https://app.pakasir.com/pay/${projectSlug}/${cleanAmount}?order_id=${json.orderId}&redirect=${encodeURIComponent(returnUrl)}`;
         
         if (paymentMethod === 'qris') {
