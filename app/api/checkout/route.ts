@@ -25,7 +25,6 @@ export async function POST(request: Request) {
     const fundraiserPhone = body.fundraiserPhone || body.referral || '';
     
     // 🚀 PILIHAN METODE PEMBAYARAN PAKASIR (Default 'qris')
-    // Pilihan metode yang didukung Pakasir: qris, bni_va, bri_va, permata_va, mandiri_va, cimb_niaga_va, dll.
     const paymentMethod = body.paymentMethod || 'qris';
     const cleanMethod = String(paymentMethod).toLowerCase().trim();
     
@@ -101,18 +100,21 @@ export async function POST(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://bdb.or.id';
     const returnUrl = `${siteUrl}/thank-you?order_id=${generatedOrderId}`;
 
-    // 🚀 1. MENULIS DATA TRANSAKSI LENGKAP KE SANITY
+    // 🚀 MEMBUAT URL PEMBAYARAN RESMI PAKASIR
+    const pakasirPayUrl = `https://app.pakasir.com/pay/${projectSlug}/${cleanAmountNumber}?order_id=${generatedOrderId}&redirect=${encodeURIComponent(returnUrl)}`;
+
+    // 🚀 1. MENULIS DATA TRANSAKSI LENGKAP KE SANITY (Menggunakan URL Pembayaran Pakasir yang benar)
     await client.create({
       _type: 'donationTransaction',
       orderId: String(generatedOrderId),
       donorName: String(donorName),
       donorPhone: String(donorPhone),
-      amount: Number(cleanAmountNumber),           
+      amount: Number(cleanAmountNumber),            
       totalAmount: Number(totalPayment), 
       status: 'pending',
       slug: String(slug),
       paymentMethod: String(cleanMethod),  
-      paymentUrl: String(returnUrl),  
+      paymentUrl: String(pakasirPayUrl), // 🚀 Diperbaiki: Mengarah ke URL Pembayaran Pakasir
       paymentNumber: String(paymentNumber), 
       fundraiserPhone: fundraiserPhone ? String(fundraiserPhone).trim() : '',
     });
@@ -157,6 +159,7 @@ export async function POST(request: Request) {
       paymentNumber: paymentNumber, 
       expiredAt: expiredAt,
       returnUrl: returnUrl,
+      paymentUrl: pakasirPayUrl,
     });
 
   } catch (error: any) {
