@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Tangkap order_id dari payload Pakasir dan simpan ke variabel orderId
+    // Tangkap data dari payload webhook Pakasir
     const { amount, order_id, project, status, payment_method, completed_at } = body;
     const orderId = order_id;
 
@@ -76,10 +76,12 @@ export async function POST(request: Request) {
       let programTitle = 'Program Kebaikan';
       let donorPhone = '';
       let donorName = 'Hamba Allah';
+      let donationAmount = Number(amount || 0);
 
       if (transaction) {
         donorPhone = transaction.donorPhone || '';
         donorName = transaction.donorName || 'Hamba Allah';
+        donationAmount = Number(transaction.amount || amount || 0);
 
         // Perbarui status dokumen di Sanity menjadi 'success'
         await client
@@ -92,14 +94,15 @@ export async function POST(request: Request) {
 
         console.log(`[Sanity] Transaksi ${orderId} berhasil diperbarui menjadi SUCCESS.`);
 
-        if (transaction.slug) {
-          const progQuery = `*[_type == "program" && slug.current == $slug][0]`;
-          const programDoc = await client.fetch(progQuery, { slug: transaction.slug });
+        // Tangkap slug dengan aman (mendukung properti slug atau reference program)
+        const programSlug = transaction.slug || transaction.programSlug;
+        if (programSlug) {
+          const progQuery = `*[_type == "program" && (slug.current == $slug || _id == $slug)][0]`;
+          const programDoc = await client.fetch(progQuery, { slug: programSlug });
 
           if (programDoc) {
             programTitle = programDoc.title || programTitle;
             const currentCollected = Number(programDoc.collectedAmount || 0);
-            const donationAmount = Number(transaction.amount || amount || 0);
             const newCollected = currentCollected + donationAmount;
 
             const newDonorEntry = {
@@ -115,17 +118,19 @@ export async function POST(request: Request) {
               .append('donors', [newDonorEntry])
               .commit();
 
-            console.log(`[Sanity] Dana program ${transaction.slug} berhasil diakumulasikan.`);
+            console.log(`[Sanity] Dana program berhasil diakumulasikan.`);
           }
         }
       } else {
         console.warn(`[Sanity Warning] Transaksi dengan orderId ${orderId} tidak ditemukan di database.`);
       }
 
-      // 2. Kirim pesan WhatsApp otomatis via Fonnte
+      // 2. 🚀 KIRIM PESAN WHATSAPP OTOMATIS VIA FONNTE
+      // Jika donorPhone kosong dari Sanity, coba cek apakah ada data cadangan atau log
       if (donorPhone) {
-        const finalAmount = Number(amount || transaction?.amount || 0);
-        await sendFonnteNotification(donorPhone, donorName, finalAmount, programTitle, orderId);
+        await sendFonnteNotification(donorPhone, donorName, donationAmount, programTitle, orderId);
+      } else {
+        console.warn(`[Fonnte Warning] Nomor WhatsApp donatur tidak ditemukan untuk Order ID: ${orderId}`);
       }
 
       // 3. Sinkronkan status sukses ke Google Sheet (Opsional)
