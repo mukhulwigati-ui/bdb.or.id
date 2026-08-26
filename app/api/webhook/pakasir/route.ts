@@ -21,7 +21,6 @@ async function sendFonnteNotification(targetPhone: string, donorName: string, am
     return;
   }
 
-  // Format nomor HP (pastikan diawali 0 atau 62)
   let formattedPhone = targetPhone.replace(/\D/g, '');
   if (formattedPhone.startsWith('0')) {
     formattedPhone = '62' + formattedPhone.slice(1);
@@ -58,16 +57,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Struktur data dari payload webhook Pakasir
+    // Tangkap order_id dari payload Pakasir dan simpan ke variabel orderId
     const { amount, order_id, project, status, payment_method, completed_at } = body;
+    const orderId = order_id;
 
-    if (!order_id || !status) {
+    if (!orderId || !status) {
       return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 });
     }
 
-    console.log(`[Pakasir Webhook] Menerima webhook untuk Order ID: ${order_id} dengan status: ${status}`);
+    console.log(`[Pakasir Webhook] Menerima webhook untuk Order ID: ${orderId} dengan status: ${status}`);
 
-    // Jika pembayaran selesai/sukses
     if (status === 'completed' || status === 'success') {
       
       // 1. Cari dokumen transaksi berdasarkan orderId di Sanity
@@ -91,9 +90,8 @@ export async function POST(request: Request) {
           })
           .commit();
 
-        console.log(`[Sanity] Transaksi ${order_id} berhasil diperbarui menjadi SUCCESS.`);
+        console.log(`[Sanity] Transaksi ${orderId} berhasil diperbarui menjadi SUCCESS.`);
 
-        // Jika transaksi ini terikat ke program tertentu, tambahkan data donatur ke array donors program
         if (transaction.slug) {
           const progQuery = `*[_type == "program" && slug.current == $slug][0]`;
           const programDoc = await client.fetch(progQuery, { slug: transaction.slug });
@@ -121,13 +119,13 @@ export async function POST(request: Request) {
           }
         }
       } else {
-        console.warn(`[Sanity Warning] Transaksi dengan orderId ${order_id} tidak ditemukan di database.`);
+        console.warn(`[Sanity Warning] Transaksi dengan orderId ${orderId} tidak ditemukan di database.`);
       }
 
-      // 2. 🚀 KIRIM PESAN WHATSAPP OTOMATIS VIA FONNTE
+      // 2. Kirim pesan WhatsApp otomatis via Fonnte
       if (donorPhone) {
         const finalAmount = Number(amount || transaction?.amount || 0);
-        await sendFonnteNotification(donorPhone, donorName, finalAmount, programTitle, order_id);
+        await sendFonnteNotification(donorPhone, donorName, finalAmount, programTitle, orderId);
       }
 
       // 3. Sinkronkan status sukses ke Google Sheet (Opsional)
@@ -138,12 +136,12 @@ export async function POST(request: Request) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              orderId: order_id,
+              orderId: orderId,
               status: 'success',
               completedAt: completed_at || new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
             }),
           });
-          console.log(`[Google Sheet] Status sukses disinkronkan untuk ${order_id}`);
+          console.log(`[Google Sheet] Status sukses disinkronkan untuk ${orderId}`);
         } catch (sheetErr) {
           console.error('[Google Sheet Error] Gagal memperbarui status ke sheet:', sheetErr);
         }
