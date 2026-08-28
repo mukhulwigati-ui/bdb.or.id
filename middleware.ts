@@ -1,8 +1,8 @@
-// proxy.ts
+// middleware.ts
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -18,10 +18,22 @@ export async function proxy(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          response.cookies.delete({ name, ...options });
+          request.cookies.set({ name, value: '', ...options });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     }
@@ -39,7 +51,7 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-// Menentukan rute mana saja yang akan diproses oleh proxy
+// Menentukan rute mana saja yang akan diproses oleh middleware
 export const config = {
   matcher: [
     /*
