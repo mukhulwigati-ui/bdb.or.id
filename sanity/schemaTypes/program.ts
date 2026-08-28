@@ -65,16 +65,18 @@ export default defineType({
     }),
     defineField({
       name: 'collectedAmount',
-      title: 'Nominal Terkumpul (Bisa Direset Manual)',
+      title: 'Nominal Terkumpul (Otomatis dari Sistem)',
       type: 'number',
       initialValue: 0,
-      description: 'Dapat diubah manual (misal: diisi 0 untuk mereset data simulasi). Akan otomatis bertambah kembali saat ada transaksi real.',
+      readOnly: true,
+      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi sukses.',
     }),
     defineField({
       name: 'collectedRaw',
       title: 'Collected Raw Amount',
       type: 'number',
       initialValue: 0,
+      readOnly: true,
       description: 'Cadangan perhitungan nominal mentah dari sistem pembayaran.',
     }),
     defineField({
@@ -99,9 +101,10 @@ export default defineType({
     }),
     defineField({
       name: 'donors',
-      title: 'Daftar Donatur Terverifikasi (Bisa Dihapus Manual)',
+      title: 'Daftar Donatur Terverifikasi (Otomatis)',
       type: 'array',
-      description: 'Kosongkan atau hapus list donatur simulasi ini untuk memulai dari awal.',
+      readOnly: true,
+      description: 'List riwayat nama donatur yang masuk secara otomatis dari sistem pembayaran.',
       of: [
         {
           type: 'object',
