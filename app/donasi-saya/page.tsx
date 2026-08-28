@@ -60,6 +60,10 @@ export default function DonasiSayaPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
+        const meta = user.user_metadata || {};
+        const googleAvatar = meta.avatar_url || meta.picture || '';
+        const googleName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Dermawan';
+
         const { data: prof } = await supabase
           .from('profiles')
           .select('*')
@@ -67,7 +71,19 @@ export default function DonasiSayaPage() {
           .maybeSingle();
 
         if (prof) {
-          setProfile(prof);
+          setProfile({
+            ...prof,
+            avatar: prof.avatar || googleAvatar,
+            name: prof.name || googleName,
+          });
+        } else {
+          setProfile({
+            id: user.id,
+            email: user.email,
+            name: googleName,
+            avatar: googleAvatar,
+            phone: '',
+          });
         }
 
         const { data: donData } = await supabase
@@ -258,10 +274,10 @@ export default function DonasiSayaPage() {
                   <img
                     src={profile.avatar}
                     alt={profile.name}
-                    className="w-[58px] h-[58px] rounded-[20px] object-cover border border-[#d7b66a]/50 shadow-xl"
+                    className="w-[58px] h-[58px] rounded-full object-cover border border-[#d7b66a]/50 shadow-xl"
                   />
                 ) : (
-                  <div className="w-[58px] h-[58px] shrink-0 rounded-[20px] bg-white/10 border border-[#d7b66a]/40 flex items-center justify-center text-white font-bold text-xl">
+                  <div className="w-[58px] h-[58px] shrink-0 rounded-full bg-white/10 border border-[#d7b66a]/40 flex items-center justify-center text-white font-bold text-xl">
                     {(profile?.name || 'D')
                       .charAt(0)
                       .toUpperCase()}
