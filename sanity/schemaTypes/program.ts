@@ -65,20 +65,19 @@ export default defineType({
     }),
     defineField({
       name: 'collectedAmount',
-      title: 'Nominal Terkumpul (Otomatis dari DOKU)',
+      title: 'Nominal Terkumpul (Otomatis dari Pakasir)',
       type: 'number',
       initialValue: 0,
       readOnly: true, 
-      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi DOKU sukses.',
+      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi Pakasir sukses.',
     }),
-    // 🚀 DITAMBAHKAN: Mengatasi error Unknown field found pada collectedRaw
     defineField({
       name: 'collectedRaw',
       title: 'Collected Raw Amount',
       type: 'number',
       initialValue: 0,
       readOnly: true,
-      description: 'Cadangan perhitungan nominal mentah dari sistem webhook.',
+      description: 'Cadangan perhitungan nominal mentah dari sistem webhook Pakasir.',
     }),
     defineField({
       name: 'targetAmount',
@@ -105,7 +104,7 @@ export default defineType({
       title: 'Daftar Donatur Terverifikasi',
       type: 'array',
       readOnly: true, 
-      description: 'List riwayat nama hamba allah dan donatur yang masuk dari sistem pembayaran DOKU.',
+      description: 'List riwayat nama hamba allah dan donatur yang masuk dari sistem pembayaran Pakasir.',
       of: [
         {
           type: 'object',

@@ -19,21 +19,39 @@ export default function LoginPage() {
   
   const router = useRouter();
 
-  // 🚀 Cek apakah user sudah login, jika ya, langsung lempar ke beranda atau halaman akun
+  // 🚀 Deteksi perubahan status login secara real-time menggunakan onAuthStateChange
   useEffect(() => {
-    async function checkUserSession() {
+    let isMounted = true;
+
+    async function checkInitialSession() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          router.replace('/akun'); // Diarahkan ke halaman akun jika sudah login
+        if (session && isMounted) {
+          router.replace('/akun');
+          return;
         }
       } catch (err) {
         console.error('Error checking session:', err);
       } finally {
-        setCheckingAuth(false);
+        if (isMounted) {
+          setCheckingAuth(false);
+        }
       }
     }
-    checkUserSession();
+
+    checkInitialSession();
+
+    // Memantau perubahan auth (misal token tersinkron dari tab lain atau kuki termuat)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && isMounted) {
+        router.replace('/akun');
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase, router]);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -53,7 +71,7 @@ export default function LoginPage() {
         alert(error.message);
       } else {
         if (data.session) {
-          router.push('/');
+          router.replace('/akun');
           router.refresh();
         } else {
           alert('Pendaftaran berhasil! Silakan periksa email Anda untuk verifikasi atau langsung masuk.');
@@ -69,7 +87,7 @@ export default function LoginPage() {
       if (error) {
         alert(error.message);
       } else {
-        router.push('/');
+        router.replace('/akun');
         router.refresh();
       }
     }
