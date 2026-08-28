@@ -23,11 +23,21 @@ export default function PengaturanPage() {
     const fetchProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const meta = user.user_metadata || {};
+        const googleAvatar = meta.avatar_url || meta.picture || '';
+        const googleName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Dermawan';
+
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        
         if (data) {
           setProfile(data);
-          setName(data.name || '');
+          setName(data.name || googleName);
           setPhone(data.phone || '');
+        } else {
+          // Jika profil belum ada di database, siapkan nilai default dari Google Metadata
+          setProfile({ id: user.id, email: user.email, name: googleName, avatar: googleAvatar, phone: '' });
+          setName(googleName);
+          setPhone('');
         }
       }
       setLoading(false);
@@ -44,10 +54,20 @@ export default function PengaturanPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Sesi habis');
 
+      const meta = user.user_metadata || {};
+      const googleAvatar = meta.avatar_url || meta.picture || '';
+
+      // Menggunakan .upsert agar jika baris belum ada maka akan dibuat, jika sudah ada akan di-update
       const { error } = await supabase
         .from('profiles')
-        .update({ name, phone, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .upsert({
+          id: user.id,
+          email: user.email,
+          name,
+          phone,
+          avatar: profile?.avatar || googleAvatar,
+          updated_at: new Date().toISOString()
+        });
 
       if (error) throw error;
       setMessage('Pengaturan akun berhasil disimpan! 🎉');
@@ -59,29 +79,29 @@ export default function PengaturanPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-xs font-bold text-slate-500 animate-pulse">Memuat pengaturan...</div>;
+  if (loading) return <div className="min-h-screen bg-[#f8f8f6] flex items-center justify-center text-xs font-bold text-slate-500 animate-pulse">Memuat pengaturan...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28 pt-4 px-4">
-      <div className="max-w-md mx-auto space-y-4">
+    <div className="min-h-screen bg-[#f8f8f6] pb-28 pt-5 px-3 flex justify-center text-slate-900">
+      <div className="w-[calc(100%-1.5rem)] max-w-[calc(28rem-1.5rem)] space-y-4">
         
         {/* Header */}
-        <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-          <Link href="/akun" className="p-2 bg-slate-100 rounded-xl hover:bg-slate-200 transition">
+        <div className="flex items-center gap-3 bg-white p-4 rounded-none border border-slate-200/80 shadow-xs">
+          <Link href="/akun" className="p-2 bg-slate-100 rounded-none hover:bg-slate-200 transition">
             <ArrowLeft className="w-4 h-4 text-slate-700" />
           </Link>
           <h1 className="font-extrabold text-base text-slate-900">Pengaturan Akun</h1>
         </div>
 
         {/* Form Pengaturan */}
-        <form onSubmit={handleSave} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+        <form onSubmit={handleSave} className="bg-white p-5 rounded-none border border-slate-200/80 shadow-xs space-y-4">
           <div>
             <label className="text-xs font-extrabold text-slate-700 block mb-1">Nama Lengkap</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 rounded-xl focus:outline-[#0d5c91]"
+              className="w-full border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 rounded-none focus:outline-[#0d5c91]"
             />
           </div>
 
@@ -91,7 +111,7 @@ export default function PengaturanPage() {
               type="email"
               disabled
               value={profile?.email || ''}
-              className="w-full border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-slate-400 bg-slate-50 rounded-xl cursor-not-allowed"
+              className="w-full border border-slate-200 px-3.5 py-2.5 text-sm font-semibold text-slate-400 bg-slate-50 rounded-none cursor-not-allowed"
             />
             <span className="text-[10px] text-slate-400 mt-1 block">Email terhubung dengan Google Auth dan tidak dapat diubah.</span>
           </div>
@@ -102,12 +122,12 @@ export default function PengaturanPage() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 rounded-xl focus:outline-[#0d5c91]"
+              className="w-full border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-900 rounded-none focus:outline-[#0d5c91]"
             />
           </div>
 
           {message && (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-none">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> {message}
             </div>
           )}
@@ -115,7 +135,7 @@ export default function PengaturanPage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition cursor-pointer shadow-sm"
+            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold py-3 rounded-none text-xs uppercase tracking-wider transition cursor-pointer shadow-sm"
           >
             {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
           </button>
