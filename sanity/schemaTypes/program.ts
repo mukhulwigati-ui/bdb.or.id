@@ -65,19 +65,17 @@ export default defineType({
     }),
     defineField({
       name: 'collectedAmount',
-      title: 'Nominal Terkumpul (Otomatis dari Pakasir)',
+      title: 'Nominal Terkumpul (Bisa Direset Manual)',
       type: 'number',
       initialValue: 0,
-      readOnly: true, 
-      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi Pakasir sukses.',
+      description: 'Dapat diubah manual (misal: diisi 0 untuk mereset data simulasi). Akan otomatis bertambah kembali saat ada transaksi real.',
     }),
     defineField({
       name: 'collectedRaw',
       title: 'Collected Raw Amount',
       type: 'number',
       initialValue: 0,
-      readOnly: true,
-      description: 'Cadangan perhitungan nominal mentah dari sistem webhook Pakasir.',
+      description: 'Cadangan perhitungan nominal mentah dari sistem pembayaran.',
     }),
     defineField({
       name: 'targetAmount',
@@ -101,10 +99,9 @@ export default defineType({
     }),
     defineField({
       name: 'donors',
-      title: 'Daftar Donatur Terverifikasi',
+      title: 'Daftar Donatur Terverifikasi (Bisa Dihapus Manual)',
       type: 'array',
-      readOnly: true, 
-      description: 'List riwayat nama hamba allah dan donatur yang masuk dari sistem pembayaran Pakasir.',
+      description: 'Kosongkan atau hapus list donatur simulasi ini untuk memulai dari awal.',
       of: [
         {
           type: 'object',

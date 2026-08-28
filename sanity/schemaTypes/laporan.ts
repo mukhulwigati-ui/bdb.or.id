@@ -24,9 +24,12 @@ export default defineType({
     defineField({
       name: 'date',
       title: 'Tanggal Penyaluran',
-      type: 'string',
+      type: 'date',
+      options: {
+        dateFormat: 'YYYY-MM-DD',
+      },
       validation: (Rule) => Rule.required().error('Tanggal wajib diisi'),
-      description: 'Contoh: 8 Juli 2026',
+      description: 'Pilih tanggal aktual pelaksanaan penyaluran.',
     }),
     defineField({
       name: 'content',
@@ -40,6 +43,22 @@ export default defineType({
       title: 'Foto / Bukti Dokumentasi Lapangan',
       type: 'image',
       options: { hotspot: true },
+      validation: (Rule) => Rule.required().error('Bukti dokumentasi lapangan wajib diunggah'),
     }),
   ],
+  preview: {
+    select: {
+      title: 'title',
+      subtitle: 'date',
+      media: 'image',
+    },
+    prepare(selection) {
+      const { title, subtitle, media } = selection;
+      return {
+        title: title || 'Laporan Tanpa Judul',
+        subtitle: subtitle ? `Tanggal: ${subtitle}` : '',
+        media: media,
+      };
+    },
+  },
 });
