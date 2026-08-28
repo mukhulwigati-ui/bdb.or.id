@@ -1,12 +1,10 @@
 // middleware.ts
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  let supabaseResponse = NextResponse.next({
+    request,
   });
 
   const supabase = createServerClient(
@@ -14,44 +12,36 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({
+            request,
           });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({ name, value: '', ...options });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  // Memeriksa status user
+  // Penting: Jangan hapus baris getUser() ini. Ini berfungsi menyegarkan sesi auth.
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Proteksi: Jika user belum login dan mencoba mengakses rute 'akun' atau 'donasi-saya',
-  // arahkan mereka ke halaman login
-  if (!user && (request.nextUrl.pathname.startsWith('/akun') || request.nextUrl.pathname.startsWith('/donasi-saya'))) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Proteksi rute: Jika belum login dan mengakses /akun atau /donasi-saya, arahkan ke /login
+  const path = request.nextUrl.pathname;
+  if (!user && (path.startsWith('/akun') || path.startsWith('/donasi-saya'))) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
   }
 
-  return response;
+  return supabaseResponse;
 }
 
-// Menentukan rute mana saja yang akan diproses oleh middleware
 export const config = {
   matcher: [
     /*
@@ -59,9 +49,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - auth (callback)
-     * - login (halaman login)
+     * - public assets (svg, png, jpg, etc)
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth|login).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
