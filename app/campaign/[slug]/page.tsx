@@ -1,56 +1,69 @@
 // app/campaign/[slug]/page.tsx
 
 import type { Metadata } from "next";
-import CampaignDetailClient from "@/components/CampaignDetailClient";
 import { createClient } from "@sanity/client";
+import CampaignDetailClient from "@/components/CampaignDetailClient";
 
 interface Props {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ ref?: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
+  searchParams: Promise<{
+    ref?: string;
+  }>;
+}
+
+interface CampaignMetadata {
+  _id?: string;
+  _updatedAt?: string;
+  title?: string;
+  description?: unknown;
+  excerpt?: unknown;
+  imageUrl?: string | null;
 }
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ======================================================
+// ============================================================
 // KONFIGURASI
-// ======================================================
+// ============================================================
 
 const SITE_URL = "https://www.bdb.or.id";
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
-const dataset =
-  process.env.NEXT_PUBLIC_SANITY_DATASET || "production";
+const DEFAULT_TITLE =
+  "Program Donasi | Balai Dakwah Banjarnegara";
 
-if (!projectId) {
-  throw new Error(
-    "NEXT_PUBLIC_SANITY_PROJECT_ID belum tersedia."
-  );
-}
+const DEFAULT_DESCRIPTION =
+  "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui Balai Dakwah Banjarnegara.";
 
-// ======================================================
-// PENTING:
-// JANGAN hard-code projectId Sanity di sini.
-// Gunakan project yang SAMA dengan halaman detail.
-// ======================================================
+const DEFAULT_IMAGE =
+  `${SITE_URL}/images/banner.png`;
+
+// ============================================================
+// SANITY CLIENT
+// ============================================================
 
 const sanityMetaClient = createClient({
-  projectId,
-  dataset,
+  projectId: "xqggeww8",
+  dataset: "production",
   apiVersion: "2024-01-01",
   useCdn: false,
   perspective: "published",
 
-  // Kalau dataset private:
+  // Jangan hardcode token di source code.
+  // Jika dataset Sanity public, bagian token ini boleh dihapus.
   token: process.env.SANITY_API_READ_TOKEN,
 });
 
-// ======================================================
+// ============================================================
 // PORTABLE TEXT / HTML -> PLAIN TEXT
-// ======================================================
+// ============================================================
 
-function toPlainText(value: any): string {
-  if (!value) return "";
+function toPlainText(value: unknown): string {
+  if (!value) {
+    return "";
+  }
 
   if (typeof value === "string") {
     return value
@@ -61,16 +74,19 @@ function toPlainText(value: any): string {
 
   if (Array.isArray(value)) {
     return value
-      .filter(
-        (block: any) =>
+      .map((block: any) => {
+        if (
           block?._type === "block" &&
           Array.isArray(block.children)
-      )
-      .map((block: any) =>
-        block.children
-          .map((child: any) => child?.text || "")
-          .join("")
-      )
+        ) {
+          return block.children
+            .map((child: any) => child?.text || "")
+            .join("");
+        }
+
+        return "";
+      })
+      .filter(Boolean)
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
@@ -79,58 +95,99 @@ function toPlainText(value: any): string {
   return "";
 }
 
-// ======================================================
-// ABSOLUTE URL
-// ======================================================
+// ============================================================
+// POTONG DESCRIPTION
+// ============================================================
 
-function absoluteUrl(url?: string | null): string {
-  if (!url) {
-    return `${SITE_URL}/images/banner.png`;
+function makeDescription(
+  value: unknown,
+  fallback: string
+): string {
+  const text = toPlainText(value);
+
+  if (!text) {
+    return fallback;
   }
 
-  const value = String(url).trim();
-
-  if (/^https?:\/\//i.test(value)) {
-    return value;
+  if (text.length <= 160) {
+    return text;
   }
 
-  if (value.startsWith("//")) {
-    return `https:${value}`;
-  }
-
-  if (value.startsWith("/")) {
-    return `${SITE_URL}${value}`;
-  }
-
-  return `${SITE_URL}/${value}`;
+  return `${text.slice(0, 157).trim()}...`;
 }
 
-// ======================================================
-// SOCIAL IMAGE
-// ======================================================
+// ============================================================
+// ABSOLUTE URL
+// ============================================================
 
-function socialImage(
+function makeAbsoluteUrl(
+  value: string | null | undefined
+): string {
+  if (!value) {
+    return DEFAULT_IMAGE;
+  }
+
+  const url = value.trim();
+
+  if (!url) {
+    return DEFAULT_IMAGE;
+  }
+
+  if (url.startsWith("https://")) {
+    return url;
+  }
+
+  if (url.startsWith("http://")) {
+    return url;
+  }
+
+  if (url.startsWith("//")) {
+    return `https:${url}`;
+  }
+
+  if (url.startsWith("/")) {
+    return `${SITE_URL}${url}`;
+  }
+
+  return `${SITE_URL}/${url}`;
+}
+
+// ============================================================
+// SOCIAL IMAGE
+// ============================================================
+
+function makeSocialImage(
   imageUrl: string,
   updatedAt?: string
 ): string {
   try {
     const url = new URL(imageUrl);
 
-    // Optimasi hanya jika gambar memang dari Sanity
+    // --------------------------------------------------------
+    // JIKA GAMBAR BERASAL DARI SANITY
+    // --------------------------------------------------------
+
     if (url.hostname === "cdn.sanity.io") {
       url.searchParams.set("w", "1200");
       url.searchParams.set("h", "630");
       url.searchParams.set("fit", "crop");
-      url.searchParams.set("auto", "format");
+      url.searchParams.set("fm", "jpg");
       url.searchParams.set("q", "90");
     }
 
-    // Cache busting
+    // --------------------------------------------------------
+    // CACHE BUSTER
+    // --------------------------------------------------------
+
     if (updatedAt) {
-      url.searchParams.set(
-        "v",
-        new Date(updatedAt).getTime().toString()
-      );
+      const timestamp = new Date(updatedAt).getTime();
+
+      if (!Number.isNaN(timestamp)) {
+        url.searchParams.set(
+          "v",
+          timestamp.toString()
+        );
+      }
     }
 
     return url.toString();
@@ -139,14 +196,16 @@ function socialImage(
   }
 }
 
-// ======================================================
-// METADATA
-// ======================================================
+// ============================================================
+// GENERATE METADATA
+// ============================================================
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }): Promise<Metadata> {
   const { slug } = await params;
 
@@ -154,103 +213,174 @@ export async function generateMetadata({
     decodeURIComponent(slug).trim();
 
   const canonicalUrl =
-    `${SITE_URL}/campaign/${encodeURIComponent(
-      decodedSlug
-    )}`;
+    `${SITE_URL}/campaign/${encodeURIComponent(decodedSlug)}`;
 
-  // Default
-  let title =
-    "Program Donasi | Balai Dakwah Banjarnegara";
-
-  let description =
-    "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui Balai Dakwah Banjarnegara.";
-
-  let image =
-    `${SITE_URL}/images/banner.png`;
-
-  let updatedAt = "";
+  let title = DEFAULT_TITLE;
+  let description = DEFAULT_DESCRIPTION;
+  let image = DEFAULT_IMAGE;
+  let updatedAt: string | undefined;
 
   try {
-    // ==================================================
+    // ========================================================
+    // QUERY SANITY
+    //
     // PENTING:
+    // Query pertama-tama mengambil field "image".
     //
-    // 1. Cari berdasarkan SLUG saja.
-    // 2. Ambil document TERBARU.
-    // 3. Jangan menggunakan _id == slug.
-    //
-    // Ini mencegah pengambilan document lama / salah.
-    // ==================================================
+    // Kalau CampaignDetailClient juga menggunakan field image,
+    // maka gambar detail dan gambar medsos akan sama.
+    // ========================================================
 
     const query = `
       *[
-        slug.current == $slug &&
-        (
-          _type == "campaign" ||
-          _type == "program"
-        )
-      ]
-      | order(_updatedAt desc)
-      [0]
-      {
+        (_type == "campaign" || _type == "program") &&
+        slug.current == $slug
+      ][0] {
         _id,
-        _type,
         _updatedAt,
-
         title,
-        excerpt,
         description,
+        excerpt,
 
-        /*
-         * PRIORITAS GAMBAR DETAIL
-         *
-         * Field image diletakkan BELAKANG
-         * karena kemungkinan merupakan gambar lama.
-         */
-        "detailImage": coalesce(
-          mainImage.asset->url,
-          featuredImage.asset->url,
-          coverImage.asset->url,
-          thumbnail.asset->url,
-          banner.asset->url,
-
-          mainImageUrl,
-          featuredImageUrl,
-          coverImageUrl,
-          thumbnailUrl,
-          bannerUrl,
-
-          image.asset->url,
-          imageUrl
-        )
+        "imageUrl": image.asset->url
       }
     `;
 
     const campaign =
-      await sanityMetaClient.fetch(
+      await sanityMetaClient.fetch<CampaignMetadata | null>(
         query,
         {
           slug: decodedSlug,
-        },
-        {
-          cache: "no-store",
         }
       );
 
-    console.log(
-      "[OG CAMPAIGN]",
-      decodedSlug,
-      campaign
-    );
-
     if (campaign) {
-      // ----------------------------------------------
+      // ------------------------------------------------------
       // TITLE
-      // ----------------------------------------------
+      // ------------------------------------------------------
 
-      if (campaign.title) {
+      if (
+        campaign.title &&
+        campaign.title.trim()
+      ) {
         title =
-          `${campaign.title} | Balai Dakwah Banjarnegara`;
+          `${campaign.title.trim()} | Balai Dakwah Banjarnegara`;
       }
 
-      // ----------------------------------------------
+      // ------------------------------------------------------
       // DESCRIPTION
+      // ------------------------------------------------------
+
+      const rawDescription =
+        campaign.excerpt ||
+        campaign.description;
+
+      description = makeDescription(
+        rawDescription,
+        DEFAULT_DESCRIPTION
+      );
+
+      // ------------------------------------------------------
+      // IMAGE
+      // ------------------------------------------------------
+
+      if (
+        campaign.imageUrl &&
+        typeof campaign.imageUrl === "string"
+      ) {
+        image = makeAbsoluteUrl(
+          campaign.imageUrl
+        );
+      }
+
+      // ------------------------------------------------------
+      // UPDATED AT
+      // ------------------------------------------------------
+
+      if (campaign._updatedAt) {
+        updatedAt =
+          campaign._updatedAt;
+      }
+    }
+  } catch (error) {
+    console.error(
+      "[generateMetadata] Sanity error:",
+      error
+    );
+  }
+
+  // ==========================================================
+  // FINAL IMAGE
+  // ==========================================================
+
+  const socialImage =
+    makeSocialImage(
+      makeAbsoluteUrl(image),
+      updatedAt
+    );
+
+  // ==========================================================
+  // METADATA
+  // ==========================================================
+
+  return {
+    metadataBase: new URL(SITE_URL),
+
+    title,
+    description,
+
+    alternates: {
+      canonical: canonicalUrl,
+    },
+
+    robots: {
+      index: true,
+      follow: true,
+    },
+
+    openGraph: {
+      type: "article",
+      locale: "id_ID",
+      siteName: "Balai Dakwah Banjarnegara",
+      url: canonicalUrl,
+      title,
+      description,
+
+      images: [
+        {
+          url: socialImage,
+          secureUrl: socialImage,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
+
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [socialImage],
+    },
+  };
+}
+
+// ============================================================
+// PAGE
+// ============================================================
+
+export default async function CampaignPage({
+  params,
+  searchParams,
+}: Props) {
+  const { slug } = await params;
+  const { ref } = await searchParams;
+
+  return (
+    <CampaignDetailClient
+      slug={slug}
+      referral={ref ?? null}
+    />
+  );
+}
