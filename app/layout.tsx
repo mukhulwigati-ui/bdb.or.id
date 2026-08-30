@@ -101,7 +101,6 @@ export const metadata: Metadata = {
   verification: {
     google: "masukkan-google-site-verification-anda",
     yandex: "yandex-verification-token",
-    bing: "bing-verification-token",
   },
   category: "Nonprofit & Charity",
 };
