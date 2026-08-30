@@ -8,10 +8,27 @@ import Campaign from '@/components/Campaign';
 import News from '@/components/News';
 import Footer from '@/components/Footer';
 
-// 🚀 METADATA OPEN GRAPH UNTUK SOSIAL MEDIA SHARING
+// 🚀 MASTER METADATA & OPEN GRAPH UNTUK SOSIAL MEDIA SHARING
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bdb.or.id'),
   title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
   description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
+  applicationName: 'Balai Dakwah Banjarnegara',
+  generator: 'Next.js',
+  keywords: [
+    'bdb',
+    'bdb or id',
+    'balai dakwah banjarnegara',
+    'sedekah online',
+    'infaq online',
+    'bayar zakat online',
+    'wakaf quran',
+    'sedekah subuh',
+    'donasi yatim dhuafa',
+  ],
+  authors: [{ name: 'Balai Dakwah Banjarnegara', url: 'https://bdb.or.id' }],
+  creator: 'Balai Dakwah Banjarnegara',
+  publisher: 'Balai Dakwah Banjarnegara',
   alternates: {
     canonical: 'https://bdb.or.id',
   },
@@ -19,7 +36,7 @@ export const metadata: Metadata = {
     title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
     description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
     url: 'https://bdb.or.id',
-    siteName: 'bdb.or.id',
+    siteName: 'Balai Dakwah Banjarnegara',
     locale: 'id_ID',
     type: 'website',
     images: [
@@ -37,6 +54,19 @@ export const metadata: Metadata = {
     title: 'bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya',
     description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di bdb.or.id.',
     images: ['https://bdb.or.id/images/banner.png'],
+    creator: '@balaidakwah',
+    site: '@balaidakwah',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 

@@ -27,13 +27,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug).trim();
 
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://www.islami.or.id"
-  ).replace(/\/$/, "");
+  const siteUrl = "https://bdb.or.id";
 
-  let title = "Program Donasi | islami.or.id";
-  let description = "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui islami.or.id.";
+  let title = "Program Donasi | Balai Dakwah Banjarnegara";
+  let description = "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui Balai Dakwah Banjarnegara (bdb.or.id).";
   let image = `${siteUrl}/images/banner.png`;
 
   try {
@@ -52,7 +49,7 @@ export async function generateMetadata({
 
     if (campaign) {
       if (campaign.title) {
-        title = campaign.title;
+        title = `${campaign.title} - Balai Dakwah Banjarnegara`;
       }
 
       const rawDesc = campaign.excerpt || campaign.description;
@@ -79,14 +76,14 @@ export async function generateMetadata({
     console.error("Sanity Metadata Error:", err);
   }
 
-  // Bersihkan parameter format gambar jika ada
+  // Bersihkan parameter format gambar jika ada dari Sanity CDN
   image = image
     .replace("?format=jpg", "")
     .replace("&format=jpg", "")
     .replace("?fm=jpg", "")
     .replace("&fm=jpg", "");
 
-  // 🚀 Pastikan URL Gambar Absolut menggunakan domain publik (Cegah isu localhost)
+  // 🚀 Pastikan URL Gambar Absolut menggunakan domain publik bdb.or.id
   if (image.startsWith("/")) {
     image = `${siteUrl}${image}`;
   } else if (!image.startsWith("http")) {
@@ -103,11 +100,18 @@ export async function generateMetadata({
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
-      type: "website",
+      type: "article",
       url: `${siteUrl}/campaign/${slug}`,
-      siteName: "islami.or.id",
+      siteName: "bdb.or.id",
       locale: "id_ID",
       title,
       description,
@@ -126,6 +130,8 @@ export async function generateMetadata({
       title,
       description,
       images: [image],
+      creator: "@balaidakwah",
+      site: "@balaidakwah",
     },
   };
 }

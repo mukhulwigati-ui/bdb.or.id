@@ -402,7 +402,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     }
   };
 
-  // 🚀 PERBAIKAN: Ganti slug 'depodomain' dengan slug asli proyek Pakasir Anda secara langsung
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
@@ -435,7 +434,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       const json = await res.json();
       
       if (json.success && json.orderId) {
-        // Ganti 'balai-dakwah-banjarnegara' di bawah ini jika slug Pakasir Anda berbeda
         const projectSlug = process.env.NEXT_PUBLIC_PAKASIR_PROJECT_SLUG || 'balai-dakwah-banjarnegara';
         const siteUrl = window.location.origin; 
         const returnUrl = `${siteUrl}/thank-you?order_id=${json.orderId}`;
@@ -627,7 +625,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
       {/* Floating Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center pb-3">
-        <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto rounded-2xl">
+        <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto rounded-xl">
           <button 
             onClick={() => setIsMobileFormOpen(true)} 
             className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-4 shadow-md transition-all uppercase tracking-wide cursor-pointer rounded-xl"
@@ -682,17 +680,17 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs sm:text-sm font-semibold text-slate-600 block">Tautan Program</label>
+              <label className="text-xs sm:text-sm font-semibold text-slate-600 block">Tautan Program campaign...</label>
               <div className="flex items-center gap-2">
                 <input 
                   type="text" 
                   readOnly 
                   value={shareUrl} 
-                  className="flex-1 bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-700 truncate focus:outline-none rounded-lg"
+                  className="flex-1 bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-700 truncate focus:outline-none rounded-xl"
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="bg-emerald-900 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-emerald-950 transition shadow-sm cursor-pointer rounded-lg"
+                  className="bg-emerald-900 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-emerald-950 transition shadow-sm cursor-pointer rounded-xl"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   <span>{copied ? 'Tersalin' : 'Salin'}</span>
@@ -715,7 +713,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-blue-50 border border-blue-200 text-blue-800 space-y-1.5 hover:bg-blue-100 transition shadow-2xs rounded-xl"
+                className="flex flex-col items-center z-2 justify-center p-3.5 bg-blue-50 border border-blue-200 text-blue-800 space-y-1.5 hover:bg-blue-100 transition shadow-2xs rounded-xl"
               >
                 <svg className="w-6 h-6 fill-current text-blue-600" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -724,7 +722,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               </a>
 
               <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(program?.title || '')}`}
+                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(program?.title || '')}}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center justify-center p-3.5 bg-gray-100 border border-gray-200 text-slate-800 space-y-1.5 hover:bg-gray-200 transition shadow-2xs rounded-xl"
