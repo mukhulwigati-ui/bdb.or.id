@@ -1,10 +1,15 @@
 // app/layout.tsx
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import LayoutClientWrapper from "@/components/LayoutClientWrapper"; 
-import BottomNav from "@/components/BottomNav"; 
+import LayoutClientWrapper from "@/components/LayoutClientWrapper";
+import BottomNav from "@/components/BottomNav";
 import Script from "next/script";
 import "./globals.css";
+
+// ============================================================
+// FONT
+// ============================================================
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,145 +21,326 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 🚀 MASTER SEO & SOCIAL MEDIA SHARING METADATA (100% Didukung di Server Component)
+// ============================================================
+// KONFIGURASI WEBSITE
+//
+// PENTING:
+// Gunakan SATU domain secara konsisten.
+// Kita pakai WWW karena URL campaign dan debugger Anda
+// menggunakan https://www.bdb.or.id
+// ============================================================
+
+const SITE_URL = "https://www.bdb.or.id";
+
+// Versioning ini membantu crawler melihat gambar sebagai URL baru.
+// Ubah angkanya jika suatu saat banner diganti lagi.
+const OG_IMAGE_VERSION = "20260830-2";
+
+const HOME_OG_IMAGE =
+  `${SITE_URL}/images/banner.png?v=${OG_IMAGE_VERSION}`;
+
+const SITE_TITLE =
+  "bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Zakat, dan Wakaf Terpercaya";
+
+const SITE_DESCRIPTION =
+  "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui Balai Dakwah Banjarnegara. Tunaikan donasi dengan mudah, amanah, dan transparan.";
+
+// ============================================================
+// MASTER METADATA
+// ============================================================
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://bdb.or.id"),
+  metadataBase: new URL(SITE_URL),
+
+  // ----------------------------------------------------------
+  // TITLE
+  // ----------------------------------------------------------
+
   title: {
-    default: "bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Infaq & Zakat Online Amanah",
-    template: "%s | bdb.or.id"
+    default: SITE_TITLE,
+    template: "%s | Balai Dakwah Banjarnegara",
   },
-  description: "Salurkan sedekah, infaq, zakat, dan wakaf Anda secara instan dan amanah melalui bdb.or.id (Balai Dakwah Banjarnegara). Mengalirkan keberkahan dan kepedulian untuk pemberdayaan ummat, yatim, dhuafa, dan program sosial kemanusiaan.",
-  applicationName: "Balai Dakwah Banjarnegara",
-  generator: "Next.js",
-  manifest: "/manifest.json",
+
+  // ----------------------------------------------------------
+  // DESCRIPTION
+  // ----------------------------------------------------------
+
+  description: SITE_DESCRIPTION,
+
+  applicationName:
+    "Balai Dakwah Banjarnegara",
+
+  generator:
+    "Next.js",
+
+  // ----------------------------------------------------------
+  // PWA
+  // ----------------------------------------------------------
+
+  manifest:
+    "/manifest.json",
+
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Balai Dakwah Banjarnegara",
   },
+
+  // ----------------------------------------------------------
+  // KEYWORDS
+  // ----------------------------------------------------------
+
   keywords: [
     "bdb",
     "bdb or id",
-    "balai dakwah banjarnegara",
+    "bdb.or.id",
+    "Balai Dakwah Banjarnegara",
     "sedekah online",
+    "infak online",
     "infaq online",
+    "zakat online",
     "bayar zakat online",
+    "wakaf online",
     "wakaf quran",
     "sedekah subuh",
-    "donasi yatim dhuafa",
-    "lembaga amil zakat amanah",
-    "donasi qris instant",
-    "banjarnegara beramal",
+    "donasi online",
+    "donasi yatim",
+    "donasi dhuafa",
+    "donasi Banjarnegara",
+    "lembaga sosial Banjarnegara",
+    "donasi QRIS",
   ],
-  authors: [{ name: "Balai Dakwah Banjarnegara", url: "https://bdb.or.id" }],
-  creator: "Balai Dakwah Banjarnegara",
-  publisher: "Balai Dakwah Banjarnegara",
+
+  // ----------------------------------------------------------
+  // AUTHOR
+  // ----------------------------------------------------------
+
+  authors: [
+    {
+      name: "Balai Dakwah Banjarnegara",
+      url: SITE_URL,
+    },
+  ],
+
+  creator:
+    "Balai Dakwah Banjarnegara",
+
+  publisher:
+    "Balai Dakwah Banjarnegara",
+
+  // ----------------------------------------------------------
+  // FORMAT DETECTION
+  // ----------------------------------------------------------
+
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
+
+  // ----------------------------------------------------------
+  // CANONICAL
+  // ==========================================================
+
   alternates: {
-    canonical: "https://bdb.or.id",
+    canonical: `${SITE_URL}/`,
+
     languages: {
-      'id-ID': 'https://bdb.or.id',
+      "id-ID": `${SITE_URL}/`,
     },
   },
+
+  // ==========================================================
+  // OPEN GRAPH
+  //
+  // Facebook, WhatsApp, Telegram, dll.
+  // ==========================================================
+
   openGraph: {
-    title: "bdb.or.id | Balai Dakwah Banjarnegara - Platform Sedekah, Infaq & Zakat Online Amanah",
-    description: "Tunaikan kepedulian Anda dengan mudah bersama Balai Dakwah Banjarnegara (bdb.or.id). Salurkan sedekah subuh, infaq produktif, dan zakat secara transparan dan otomatis via QRIS & Virtual Account.",
-    url: "https://bdb.or.id",
-    siteName: "Balai Dakwah Banjarnegara",
-    locale: "id_ID",
     type: "website",
+
+    locale:
+      "id_ID",
+
+    url:
+      `${SITE_URL}/`,
+
+    siteName:
+      "Balai Dakwah Banjarnegara",
+
+    title:
+      SITE_TITLE,
+
+    description:
+      SITE_DESCRIPTION,
+
     images: [
       {
-        url: "https://bdb.or.id/images/banner.png",
-        width: 1200,
-        height: 630,
-        type: "image/png",
-        alt: "bdb.or.id - Balai Dakwah Banjarnegara - Mengalirkan Keberkahan Melalui Sedekah dan Infaq",
+        url:
+          HOME_OG_IMAGE,
+
+        secureUrl:
+          HOME_OG_IMAGE,
+
+        width:
+          1200,
+
+        height:
+          630,
+
+        type:
+          "image/png",
+
+        alt:
+          "Balai Dakwah Banjarnegara - Sedekah, Zakat dan Wakaf",
       },
     ],
   },
+
+  // ==========================================================
+  // TWITTER / X
+  // ==========================================================
+
   twitter: {
-    card: "summary_large_image",
-    title: "bdb.or.id | Balai Dakwah Banjarnegara - Sedekah & Infaq Online Mudah",
-    description: "Platform resmi galang donasi, sedekah, infaq, dan zakat amanah bersama bdb.or.id (Balai Dakwah Banjarnegara).",
-    images: ["https://bdb.or.id/images/banner.png"],
-    creator: "@balaidakwah",
-    site: "@balaidakwah",
+    card:
+      "summary_large_image",
+
+    title:
+      SITE_TITLE,
+
+    description:
+      SITE_DESCRIPTION,
+
+    images: [
+      HOME_OG_IMAGE,
+    ],
   },
+
+  // ==========================================================
+  // ROBOTS
+  // ==========================================================
+
   robots: {
     index: true,
     follow: true,
     nocache: false,
+
     googleBot: {
       index: true,
       follow: true,
       noimageindex: false,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+
+      "max-video-preview": -1,
+
+      "max-image-preview":
+        "large",
+
+      "max-snippet": -1,
     },
   },
-  verification: {
-    google: "masukkan-google-site-verification-anda",
-    yandex: "yandex-verification-token",
-  },
-  category: "Nonprofit & Charity",
+
+  category:
+    "Nonprofit & Charity",
 };
+
+// ============================================================
+// ROOT LAYOUT
+// ============================================================
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 🚀 JSON-LD Structured Data untuk SEO Maksimal di Mata Google
+
+  // ==========================================================
+  // JSON-LD
+  // ==========================================================
+
   const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "NGO",
-    "name": "Balai Dakwah Banjarnegara",
-    "alternateName": "bdb.or.id",
-    "url": "https://bdb.or.id",
-    "logo": "https://bdb.or.id/images/banner.png",
-    "description": "Platform sedekah, infaq, zakat, dan wakaf online amanah di Banjarnegara.",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Banjarnegara",
-      "addressRegion": "Jawa Tengah",
-      "addressCountry": "ID"
+    "@context":
+      "https://schema.org",
+
+    "@type":
+      "NGO",
+
+    name:
+      "Balai Dakwah Banjarnegara",
+
+    alternateName:
+      "bdb.or.id",
+
+    url:
+      `${SITE_URL}/`,
+
+    // Untuk logo organisasi sebaiknya nanti gunakan
+    // file logo asli, bukan banner.
+    image:
+      `${SITE_URL}/images/banner.png`,
+
+    description:
+      SITE_DESCRIPTION,
+
+    address: {
+      "@type":
+        "PostalAddress",
+
+      addressLocality:
+        "Banjarnegara",
+
+      addressRegion:
+        "Jawa Tengah",
+
+      addressCountry:
+        "ID",
     },
-    "sameAs": [
-      "https://instagram.com/",
-      "https://facebook.com/"
-    ]
   };
 
   return (
-    <html lang="id" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html
+      lang="id"
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+    >
       <head>
-        {/* 🚀 Inject JSON-LD Schema.org Structured Data */}
+        {/* ====================================================
+            STRUCTURED DATA
+        ==================================================== */}
+
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html:
+              JSON.stringify(jsonLd),
+          }}
         />
       </head>
-      <body className="min-h-screen bg-slate-100 flex flex-col text-slate-800" suppressHydrationWarning>
-        
-        {/* 🚀 GOOGLE ANALYTICS SCRIPT (GA4) */}
+
+      <body
+        className="min-h-screen bg-slate-100 flex flex-col text-slate-800"
+        suppressHydrationWarning
+      >
+        {/* ====================================================
+            GOOGLE ANALYTICS GA4
+        ==================================================== */}
+
         <Script
           strategy="afterInteractive"
-          src={`https://www.googletagmanager.com/gtag/js?id=G-FG813S8GLF`}
+          src="https://www.googletagmanager.com/gtag/js?id=G-FG813S8GLF"
         />
+
         <Script
           id="google-analytics"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
+
+              function gtag(){
+                dataLayer.push(arguments);
+              }
+
               gtag('js', new Date());
+
               gtag('config', 'G-FG813S8GLF', {
                 page_path: window.location.pathname,
               });
@@ -162,22 +348,33 @@ export default function RootLayout({
           }}
         />
 
-        {/* 🚀 MIDTRANS SNAP SCRIPT UTAMA */}
+        {/* ====================================================
+            MIDTRANS SNAP
+        ==================================================== */}
+
         <Script
           src="https://app.midtrans.com/snap/snap.js"
-          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-NVjY5ccbH7M47czA"}
+          data-client-key={
+            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ||
+            "Mid-client-NVjY5ccbH7M47czA"
+          }
           strategy="lazyOnload"
           crossOrigin="anonymous"
         />
 
-        {/* 🚀 LAYOUT CLIENT WRAPPER */}
+        {/* ====================================================
+            CONTENT
+        ==================================================== */}
+
         <LayoutClientWrapper>
           {children}
         </LayoutClientWrapper>
 
-        {/* 🚀 GLOBAL BOTTOM NAVIGATION */}
-        <BottomNav />
+        {/* ====================================================
+            BOTTOM NAVIGATION
+        ==================================================== */}
 
+        <BottomNav />
       </body>
     </html>
   );
