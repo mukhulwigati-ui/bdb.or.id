@@ -1,7 +1,7 @@
 // app/campaign/[slug]/page.tsx
 
 import type { Metadata } from "next";
-import { createClient } from "@sanity/client";
+import { headers } from "next/headers";
 import CampaignDetailClient from "@/components/CampaignDetailClient";
 
 interface Props {
@@ -13,20 +13,32 @@ interface Props {
   }>;
 }
 
-interface CampaignMetadata {
+interface ProgramData {
   _id?: string;
   _updatedAt?: string;
+
+  slug?: string;
   title?: string;
+
   description?: unknown;
   excerpt?: unknown;
-  imageUrl?: string | null;
+
+  // INI YANG DIPAKAI CampaignDetailClient
+  image?: string;
+
+  [key: string]: any;
+}
+
+interface ProgramsApiResponse {
+  success?: boolean;
+  data?: ProgramData[];
 }
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // ============================================================
-// KONFIGURASI
+// KONFIGURASI WEBSITE
 // ============================================================
 
 const SITE_URL = "https://www.bdb.or.id";
@@ -41,20 +53,16 @@ const DEFAULT_IMAGE =
   `${SITE_URL}/images/banner.png`;
 
 // ============================================================
-// SANITY CLIENT
+// NORMALISASI SLUG
+//
+// HARUS SAMA DENGAN CampaignDetailClient
 // ============================================================
 
-const sanityMetaClient = createClient({
-  projectId: "xqggeww8",
-  dataset: "production",
-  apiVersion: "2024-01-01",
-  useCdn: false,
-  perspective: "published",
-
-  // Jangan hardcode token di source code.
-  // Jika dataset Sanity public, bagian token ini boleh dihapus.
-  token: process.env.SANITY_API_READ_TOKEN,
-});
+function normalizeSlug(value: string): string {
+  return decodeURIComponent(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
 // ============================================================
 // PORTABLE TEXT / HTML -> PLAIN TEXT
@@ -96,10 +104,10 @@ function toPlainText(value: unknown): string {
 }
 
 // ============================================================
-// POTONG DESCRIPTION
+// DESCRIPTION
 // ============================================================
 
-function makeDescription(
+function createDescription(
   value: unknown,
   fallback: string
 ): string {
@@ -127,17 +135,13 @@ function makeAbsoluteUrl(
     return DEFAULT_IMAGE;
   }
 
-  const url = value.trim();
+  const url = String(value).trim();
 
   if (!url) {
     return DEFAULT_IMAGE;
   }
 
-  if (url.startsWith("https://")) {
-    return url;
-  }
-
-  if (url.startsWith("http://")) {
+  if (/^https?:\/\//i.test(url)) {
     return url;
   }
 
@@ -153,34 +157,148 @@ function makeAbsoluteUrl(
 }
 
 // ============================================================
-// SOCIAL IMAGE
+// BASE URL UNTUK FETCH INTERNAL API
 // ============================================================
 
-function makeSocialImage(
+async function getRequestBaseUrl(): Promise<string> {
+  try {
+    const headerList = await headers();
+
+    const forwardedHost =
+      headerList.get("x-forwarded-host");
+
+    const host =
+      forwardedHost ||
+      headerList.get("host");
+
+    const forwardedProto =
+      headerList.get("x-forwarded-proto");
+
+    if (!host) {
+      return SITE_URL;
+    }
+
+    let protocol = forwardedProto;
+
+    if (!protocol) {
+      protocol = host.includes("localhost")
+        ? "http"
+        : "https";
+    }
+
+    return `${protocol}://${host}`;
+  } catch {
+    return SITE_URL;
+  }
+}
+
+// ============================================================
+// AMBIL PROGRAM
+//
+// PENTING:
+// DATA DIAMBIL DARI API YANG SAMA DENGAN CampaignDetailClient
+// ============================================================
+
+async function getProgram(
+  requestedSlug: string
+): Promise<ProgramData | null> {
+  try {
+    const baseUrl =
+      await getRequestBaseUrl();
+
+    const apiUrl =
+      `${baseUrl}/api/programs?t=${Date.now()}`;
+
+    const response = await fetch(apiUrl, {
+      cache: "no-store",
+
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(
+        "[Metadata] /api/programs gagal:",
+        response.status,
+        response.statusText
+      );
+
+      return null;
+    }
+
+    const json =
+      (await response.json()) as ProgramsApiResponse;
+
+    if (
+      !json.success ||
+      !Array.isArray(json.data)
+    ) {
+      console.error(
+        "[Metadata] Format /api/programs tidak valid"
+      );
+
+      return null;
+    }
+
+    // --------------------------------------------------------
+    // LOGIKA PENCARIAN INI SAMA DENGAN CampaignDetailClient
+    // --------------------------------------------------------
+
+    const cleanParamSlug =
+      normalizeSlug(requestedSlug);
+
+    const found =
+      json.data.find((program) => {
+        const programSlug =
+          String(program?.slug || "");
+
+        const cleanDbSlug =
+          programSlug
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+
+        return (
+          cleanDbSlug === cleanParamSlug ||
+          programSlug === requestedSlug ||
+          program?._id === requestedSlug
+        );
+      }) || null;
+
+    return found;
+  } catch (error) {
+    console.error(
+      "[Metadata] Gagal mengambil program:",
+      error
+    );
+
+    return null;
+  }
+}
+
+// ============================================================
+// CACHE BUSTER GAMBAR
+// ============================================================
+
+function addImageVersion(
   imageUrl: string,
-  updatedAt?: string
+  program?: ProgramData | null
 ): string {
   try {
     const url = new URL(imageUrl);
 
-    // --------------------------------------------------------
-    // JIKA GAMBAR BERASAL DARI SANITY
-    // --------------------------------------------------------
-
-    if (url.hostname === "cdn.sanity.io") {
-      url.searchParams.set("w", "1200");
-      url.searchParams.set("h", "630");
-      url.searchParams.set("fit", "crop");
-      url.searchParams.set("fm", "jpg");
-      url.searchParams.set("q", "90");
-    }
-
-    // --------------------------------------------------------
-    // CACHE BUSTER
-    // --------------------------------------------------------
-
-    if (updatedAt) {
-      const timestamp = new Date(updatedAt).getTime();
+    /*
+     * Kalau API menyediakan _updatedAt,
+     * gunakan sebagai cache buster.
+     *
+     * Saat gambar/program diubah,
+     * Facebook/WhatsApp melihat URL baru.
+     */
+    if (program?._updatedAt) {
+      const timestamp =
+        new Date(
+          program._updatedAt
+        ).getTime();
 
       if (!Number.isNaN(timestamp)) {
         url.searchParams.set(
@@ -207,130 +325,132 @@ export async function generateMetadata({
     slug: string;
   }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug } =
+    await params;
 
   const decodedSlug =
     decodeURIComponent(slug).trim();
 
   const canonicalUrl =
-    `${SITE_URL}/campaign/${encodeURIComponent(decodedSlug)}`;
+    `${SITE_URL}/campaign/${encodeURIComponent(
+      decodedSlug
+    )}`;
 
-  let title = DEFAULT_TITLE;
-  let description = DEFAULT_DESCRIPTION;
-  let image = DEFAULT_IMAGE;
-  let updatedAt: string | undefined;
+  // ==========================================================
+  // AMBIL DATA DARI SUMBER YANG SAMA DENGAN DETAIL
+  // ==========================================================
 
-  try {
-    // ========================================================
-    // QUERY SANITY
-    //
-    // PENTING:
-    // Query pertama-tama mengambil field "image".
-    //
-    // Kalau CampaignDetailClient juga menggunakan field image,
-    // maka gambar detail dan gambar medsos akan sama.
-    // ========================================================
+  const program =
+    await getProgram(decodedSlug);
 
-    const query = `
-      *[
-        (_type == "campaign" || _type == "program") &&
-        slug.current == $slug
-      ][0] {
-        _id,
-        _updatedAt,
-        title,
-        description,
-        excerpt,
+  // ==========================================================
+  // DEFAULT
+  // ==========================================================
 
-        "imageUrl": image.asset->url
-      }
-    `;
+  let title =
+    DEFAULT_TITLE;
 
-    const campaign =
-      await sanityMetaClient.fetch<CampaignMetadata | null>(
-        query,
-        {
-          slug: decodedSlug,
-        }
-      );
+  let description =
+    DEFAULT_DESCRIPTION;
 
-    if (campaign) {
-      // ------------------------------------------------------
-      // TITLE
-      // ------------------------------------------------------
+  let image =
+    DEFAULT_IMAGE;
 
-      if (
-        campaign.title &&
-        campaign.title.trim()
-      ) {
-        title =
-          `${campaign.title.trim()} | Balai Dakwah Banjarnegara`;
-      }
+  // ==========================================================
+  // TITLE
+  // ==========================================================
 
-      // ------------------------------------------------------
-      // DESCRIPTION
-      // ------------------------------------------------------
-
-      const rawDescription =
-        campaign.excerpt ||
-        campaign.description;
-
-      description = makeDescription(
-        rawDescription,
-        DEFAULT_DESCRIPTION
-      );
-
-      // ------------------------------------------------------
-      // IMAGE
-      // ------------------------------------------------------
-
-      if (
-        campaign.imageUrl &&
-        typeof campaign.imageUrl === "string"
-      ) {
-        image = makeAbsoluteUrl(
-          campaign.imageUrl
-        );
-      }
-
-      // ------------------------------------------------------
-      // UPDATED AT
-      // ------------------------------------------------------
-
-      if (campaign._updatedAt) {
-        updatedAt =
-          campaign._updatedAt;
-      }
-    }
-  } catch (error) {
-    console.error(
-      "[generateMetadata] Sanity error:",
-      error
-    );
+  if (
+    program?.title &&
+    String(program.title).trim()
+  ) {
+    title =
+      `${String(
+        program.title
+      ).trim()} | Balai Dakwah Banjarnegara`;
   }
 
   // ==========================================================
-  // FINAL IMAGE
+  // DESCRIPTION
+  // ==========================================================
+
+  if (program) {
+    description =
+      createDescription(
+        program.excerpt ||
+          program.description,
+        DEFAULT_DESCRIPTION
+      );
+  }
+
+  // ==========================================================
+  // GAMBAR
+  //
+  // INI BAGIAN TERPENTING.
+  //
+  // CampaignDetailClient:
+  //
+  // <img src={program.image} ... />
+  //
+  // Maka OpenGraph WAJIB mengambil:
+  //
+  // program.image
+  //
+  // BUKAN:
+  // image.asset->url
+  // thumbnail
+  // banner
+  // mainImage
+  // dll.
+  // ==========================================================
+
+  if (
+    program?.image &&
+    typeof program.image === "string" &&
+    program.image.trim()
+  ) {
+    image =
+      makeAbsoluteUrl(
+        program.image
+      );
+  }
+
+  // ==========================================================
+  // CACHE BUSTER
   // ==========================================================
 
   const socialImage =
-    makeSocialImage(
+    addImageVersion(
       makeAbsoluteUrl(image),
-      updatedAt
+      program
     );
 
+  // Debug server Vercel
+  console.log(
+    "[Campaign Metadata]",
+    {
+      slug: decodedSlug,
+      id: program?._id,
+      title: program?.title,
+      imageDetail: program?.image,
+      ogImage: socialImage,
+    }
+  );
+
   // ==========================================================
-  // METADATA
+  // RETURN METADATA
   // ==========================================================
 
   return {
-    metadataBase: new URL(SITE_URL),
+    metadataBase:
+      new URL(SITE_URL),
 
     title,
     description,
 
     alternates: {
-      canonical: canonicalUrl,
+      canonical:
+        canonicalUrl,
     },
 
     robots: {
@@ -340,28 +460,51 @@ export async function generateMetadata({
 
     openGraph: {
       type: "article",
+
       locale: "id_ID",
-      siteName: "Balai Dakwah Banjarnegara",
-      url: canonicalUrl,
+
+      siteName:
+        "Balai Dakwah Banjarnegara",
+
+      url:
+        canonicalUrl,
+
       title,
+
       description,
 
       images: [
         {
-          url: socialImage,
-          secureUrl: socialImage,
-          width: 1200,
-          height: 630,
-          alt: title,
+          url:
+            socialImage,
+
+          secureUrl:
+            socialImage,
+
+          width:
+            1200,
+
+          height:
+            630,
+
+          alt:
+            program?.title ||
+            title,
         },
       ],
     },
 
     twitter: {
-      card: "summary_large_image",
+      card:
+        "summary_large_image",
+
       title,
+
       description,
-      images: [socialImage],
+
+      images: [
+        socialImage,
+      ],
     },
   };
 }
@@ -374,8 +517,11 @@ export default async function CampaignPage({
   params,
   searchParams,
 }: Props) {
-  const { slug } = await params;
-  const { ref } = await searchParams;
+  const { slug } =
+    await params;
+
+  const { ref } =
+    await searchParams;
 
   return (
     <CampaignDetailClient
