@@ -34,13 +34,13 @@ export async function generateMetadata({
   let image = `${siteUrl}/images/banner.png`;
 
   try {
-    // 🚀 Ambil langsung dari Sanity agar pasti valid di Server Production
+    // 🚀 Query GROQ mengambil gambar spesifik dari campaign Sanity
     const query = `*[(_type == "program" || _type == "campaign") && (slug.current == $slug || _id == $slug)][0] {
       title,
       description,
       excerpt,
-      "mainImageUrl": mainImage.asset->url,
       "imageUrl": image.asset->url,
+      "mainImageUrl": mainImage.asset->url,
       "thumbnailUrl": thumbnail.asset->url,
       "bannerUrl": banner.asset->url
     }`;
@@ -67,7 +67,8 @@ export async function generateMetadata({
         }
       }
 
-      const foundImage = campaign.mainImageUrl || campaign.imageUrl || campaign.thumbnailUrl || campaign.bannerUrl;
+      // Prioritaskan gambar utama campaign, fallback ke properti gambar lainnya
+      const foundImage = campaign.imageUrl || campaign.mainImageUrl || campaign.thumbnailUrl || campaign.bannerUrl;
       if (foundImage) {
         image = foundImage;
       }
@@ -83,7 +84,7 @@ export async function generateMetadata({
     .replace("?fm=jpg", "")
     .replace("&fm=jpg", "");
 
-  // 🚀 Pastikan URL Gambar Absolut menggunakan domain publik bdb.or.id
+  // 🚀 Pastikan URL Gambar Bersifat Absolut
   if (image.startsWith("/")) {
     image = `${siteUrl}${image}`;
   } else if (!image.startsWith("http")) {
@@ -117,7 +118,7 @@ export async function generateMetadata({
       description,
       images: [
         {
-          url: image,
+          url: image, // Menggunakan gambar spesifik campaign dari Sanity
           width: 1200,
           height: 630,
           alt: title,
@@ -129,7 +130,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [image],
+      images: [image], // Menggunakan gambar spesifik campaign dari Sanity
       creator: "@balaidakwah",
       site: "@balaidakwah",
     },
