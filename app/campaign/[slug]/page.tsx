@@ -27,22 +27,19 @@ export async function generateMetadata({
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug).trim();
 
-  const siteUrl = "https://bdb.or.id";
+  const siteUrl = "https://www.bdb.or.id";
 
   let title = "Program Donasi | Balai Dakwah Banjarnegara";
   let description = "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui Balai Dakwah Banjarnegara (bdb.or.id).";
   let image = `${siteUrl}/images/banner.png`;
 
   try {
-    // 🚀 Query GROQ mengambil gambar spesifik dari campaign Sanity
+    // 🚀 Perbaikan Query GROQ: Mengambil langsung dari "image.asset->url" (sesuai gambar card Anda)
     const query = `*[(_type == "program" || _type == "campaign") && (slug.current == $slug || _id == $slug)][0] {
       title,
       description,
       excerpt,
-      "imageUrl": image.asset->url,
-      "mainImageUrl": mainImage.asset->url,
-      "thumbnailUrl": thumbnail.asset->url,
-      "bannerUrl": banner.asset->url
+      "imageUrl": image.asset->url
     }`;
 
     const campaign = await sanityMetaClient.fetch(query, { slug: decodedSlug });
@@ -67,10 +64,8 @@ export async function generateMetadata({
         }
       }
 
-      // Prioritaskan gambar utama campaign, fallback ke properti gambar lainnya
-      const foundImage = campaign.imageUrl || campaign.mainImageUrl || campaign.thumbnailUrl || campaign.bannerUrl;
-      if (foundImage) {
-        image = foundImage;
+      if (campaign.imageUrl) {
+        image = campaign.imageUrl;
       }
     }
   } catch (err) {
@@ -101,24 +96,17 @@ export async function generateMetadata({
     robots: {
       index: true,
       follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-video-preview': -1,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      },
     },
     openGraph: {
       type: "article",
       url: `${siteUrl}/campaign/${slug}`,
-      siteName: "bdb.or.id",
+      siteName: "Balai Dakwah Banjarnegara",
       locale: "id_ID",
       title,
       description,
       images: [
         {
-          url: image, // Menggunakan gambar spesifik campaign dari Sanity
+          url: image, // Mengambil gambar asli (Sedekah Subuh dengan ilustrasi kotak celengan & HP)
           width: 1200,
           height: 630,
           alt: title,
@@ -130,9 +118,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [image], // Menggunakan gambar spesifik campaign dari Sanity
-      creator: "@balaidakwah",
-      site: "@balaidakwah",
+      images: [image],
     },
   };
 }
