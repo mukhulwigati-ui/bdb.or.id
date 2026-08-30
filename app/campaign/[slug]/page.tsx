@@ -23,7 +23,6 @@ interface ProgramData {
   description?: unknown;
   excerpt?: unknown;
 
-  // INI YANG DIPAKAI CampaignDetailClient
   image?: string;
 
   [key: string]: any;
@@ -38,7 +37,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // ============================================================
-// KONFIGURASI WEBSITE
+// WEBSITE
 // ============================================================
 
 const SITE_URL = "https://www.bdb.or.id";
@@ -54,8 +53,7 @@ const DEFAULT_IMAGE =
 
 // ============================================================
 // NORMALISASI SLUG
-//
-// HARUS SAMA DENGAN CampaignDetailClient
+// Harus sama dengan CampaignDetailClient
 // ============================================================
 
 function normalizeSlug(value: string): string {
@@ -117,11 +115,11 @@ function createDescription(
     return fallback;
   }
 
-  if (text.length <= 160) {
+  if (text.length <= 155) {
     return text;
   }
 
-  return `${text.slice(0, 157).trim()}...`;
+  return `${text.slice(0, 152).trim()}...`;
 }
 
 // ============================================================
@@ -157,12 +155,97 @@ function makeAbsoluteUrl(
 }
 
 // ============================================================
-// BASE URL UNTUK FETCH INTERNAL API
+// OPTIMASI GAMBAR UNTUK WHATSAPP / FACEBOOK
+//
+// Gambar tetap berasal dari program.image.
+//
+// Jika berasal dari Sanity:
+// - 1200x630
+// - JPEG
+// - quality 70
+// - crop
+//
+// Tujuannya supaya ukuran file jauh lebih kecil dan
+// mudah dibaca crawler WhatsApp.
+// ============================================================
+
+function makeSocialImage(
+  originalImage: string,
+  updatedAt?: string
+): string {
+  const absoluteImage =
+    makeAbsoluteUrl(originalImage);
+
+  try {
+    const url = new URL(absoluteImage);
+
+    // ========================================================
+    // SANITY CDN
+    // ========================================================
+
+    if (
+      url.hostname === "cdn.sanity.io" ||
+      url.hostname.endsWith(".sanity.io")
+    ) {
+      // Hapus parameter lama yang mungkin membuat konflik
+      url.searchParams.delete("w");
+      url.searchParams.delete("h");
+      url.searchParams.delete("width");
+      url.searchParams.delete("height");
+
+      url.searchParams.delete("q");
+      url.searchParams.delete("quality");
+
+      url.searchParams.delete("fm");
+      url.searchParams.delete("format");
+
+      url.searchParams.delete("fit");
+      url.searchParams.delete("crop");
+      url.searchParams.delete("rect");
+
+      // Gambar Open Graph yang ringan
+      url.searchParams.set("w", "1200");
+      url.searchParams.set("h", "630");
+      url.searchParams.set("fit", "crop");
+
+      // Paksa JPEG supaya kompatibel dengan WA
+      url.searchParams.set("fm", "jpg");
+
+      // Cukup tajam untuk preview,
+      // tetapi file jauh lebih kecil
+      url.searchParams.set("q", "70");
+    }
+
+    // ========================================================
+    // CACHE BUSTER GAMBAR
+    // ========================================================
+
+    if (updatedAt) {
+      const timestamp =
+        new Date(updatedAt).getTime();
+
+      if (!Number.isNaN(timestamp)) {
+        url.searchParams.set(
+          "v",
+          timestamp.toString()
+        );
+      }
+    }
+
+    return url.toString();
+  } catch {
+    return absoluteImage;
+  }
+}
+
+// ============================================================
+// BASE URL UNTUK INTERNAL FETCH
 // ============================================================
 
 async function getRequestBaseUrl(): Promise<string> {
   try {
-    const headerList = await headers();
+    const headerList =
+      await headers();
 
     const forwardedHost =
       headerList.get("x-forwarded-host");
@@ -178,13 +261,11 @@ async function getRequestBaseUrl(): Promise<string> {
       return SITE_URL;
     }
 
-    let protocol = forwardedProto;
-
-    if (!protocol) {
-      protocol = host.includes("localhost")
+    const protocol =
+      forwardedProto ||
+      (host.includes("localhost")
         ? "http"
-        : "https";
-    }
+        : "https");
 
     return `${protocol}://${host}`;
   } catch {
@@ -193,10 +274,9 @@ async function getRequestBaseUrl(): Promise<string> {
 }
 
 // ============================================================
-// AMBIL PROGRAM
+// GET PROGRAM
 //
-// PENTING:
-// DATA DIAMBIL DARI API YANG SAMA DENGAN CampaignDetailClient
+// Mengambil API YANG SAMA dengan CampaignDetailClient.
 // ============================================================
 
 async function getProgram(
@@ -209,19 +289,18 @@ async function getProgram(
     const apiUrl =
       `${baseUrl}/api/programs?t=${Date.now()}`;
 
-    const response = await fetch(apiUrl, {
-      cache: "no-store",
-
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    const response =
+      await fetch(apiUrl, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
     if (!response.ok) {
       console.error(
-        "[Metadata] /api/programs gagal:",
-        response.status,
-        response.statusText
+        "[Metadata] /api/programs HTTP:",
+        response.status
       );
 
       return null;
@@ -235,15 +314,15 @@ async function getProgram(
       !Array.isArray(json.data)
     ) {
       console.error(
-        "[Metadata] Format /api/programs tidak valid"
+        "[Metadata] Data /api/programs tidak valid"
       );
 
       return null;
     }
 
-    // --------------------------------------------------------
-    // LOGIKA PENCARIAN INI SAMA DENGAN CampaignDetailClient
-    // --------------------------------------------------------
+    // ========================================================
+    // SAMA DENGAN CampaignDetailClient
+    // ========================================================
 
     const cleanParamSlug =
       normalizeSlug(requestedSlug);
@@ -268,49 +347,11 @@ async function getProgram(
     return found;
   } catch (error) {
     console.error(
-      "[Metadata] Gagal mengambil program:",
+      "[Metadata] getProgram error:",
       error
     );
 
     return null;
-  }
-}
-
-// ============================================================
-// CACHE BUSTER GAMBAR
-// ============================================================
-
-function addImageVersion(
-  imageUrl: string,
-  program?: ProgramData | null
-): string {
-  try {
-    const url = new URL(imageUrl);
-
-    /*
-     * Kalau API menyediakan _updatedAt,
-     * gunakan sebagai cache buster.
-     *
-     * Saat gambar/program diubah,
-     * Facebook/WhatsApp melihat URL baru.
-     */
-    if (program?._updatedAt) {
-      const timestamp =
-        new Date(
-          program._updatedAt
-        ).getTime();
-
-      if (!Number.isNaN(timestamp)) {
-        url.searchParams.set(
-          "v",
-          timestamp.toString()
-        );
-      }
-    }
-
-    return url.toString();
-  } catch {
-    return imageUrl;
   }
 }
 
@@ -337,108 +378,77 @@ export async function generateMetadata({
     )}`;
 
   // ==========================================================
-  // AMBIL DATA DARI SUMBER YANG SAMA DENGAN DETAIL
+  // AMBIL PROGRAM
   // ==========================================================
 
   const program =
     await getProgram(decodedSlug);
 
   // ==========================================================
-  // DEFAULT
-  // ==========================================================
-
-  let title =
-    DEFAULT_TITLE;
-
-  let description =
-    DEFAULT_DESCRIPTION;
-
-  let image =
-    DEFAULT_IMAGE;
-
-  // ==========================================================
   // TITLE
   // ==========================================================
 
-  if (
+  const title =
     program?.title &&
     String(program.title).trim()
-  ) {
-    title =
-      `${String(
-        program.title
-      ).trim()} | Balai Dakwah Banjarnegara`;
-  }
+      ? `${String(
+          program.title
+        ).trim()} | Balai Dakwah Banjarnegara`
+      : DEFAULT_TITLE;
 
   // ==========================================================
   // DESCRIPTION
   // ==========================================================
 
-  if (program) {
-    description =
-      createDescription(
-        program.excerpt ||
-          program.description,
-        DEFAULT_DESCRIPTION
-      );
-  }
+  const description =
+    program
+      ? createDescription(
+          program.excerpt ||
+            program.description,
+          DEFAULT_DESCRIPTION
+        )
+      : DEFAULT_DESCRIPTION;
 
   // ==========================================================
-  // GAMBAR
-  //
-  // INI BAGIAN TERPENTING.
-  //
-  // CampaignDetailClient:
-  //
-  // <img src={program.image} ... />
-  //
-  // Maka OpenGraph WAJIB mengambil:
-  //
-  // program.image
-  //
-  // BUKAN:
-  // image.asset->url
-  // thumbnail
-  // banner
-  // mainImage
-  // dll.
+  // GAMBAR ASLI YANG DIPAKAI BLOG DETAIL
   // ==========================================================
 
-  if (
+  const originalImage =
     program?.image &&
     typeof program.image === "string" &&
     program.image.trim()
-  ) {
-    image =
-      makeAbsoluteUrl(
-        program.image
-      );
-  }
+      ? program.image.trim()
+      : DEFAULT_IMAGE;
 
   // ==========================================================
-  // CACHE BUSTER
+  // GAMBAR KHUSUS SOCIAL PREVIEW
+  //
+  // Sumber tetap originalImage/program.image.
+  // Hanya dioptimasi ukurannya.
   // ==========================================================
 
   const socialImage =
-    addImageVersion(
-      makeAbsoluteUrl(image),
-      program
+    makeSocialImage(
+      originalImage,
+      program?._updatedAt
     );
 
-  // Debug server Vercel
+  // ==========================================================
+  // DEBUG
+  // ==========================================================
+
   console.log(
-    "[Campaign Metadata]",
+    "[Campaign OpenGraph]",
     {
       slug: decodedSlug,
-      id: program?._id,
       title: program?.title,
-      imageDetail: program?.image,
-      ogImage: socialImage,
+      originalImage,
+      socialImage,
     }
   );
 
   // ==========================================================
-  // RETURN METADATA
+  // METADATA
   // ==========================================================
 
   return {
@@ -461,7 +471,8 @@ export async function generateMetadata({
     openGraph: {
       type: "article",
 
-      locale: "id_ID",
+      locale:
+        "id_ID",
 
       siteName:
         "Balai Dakwah Banjarnegara",
@@ -487,6 +498,9 @@ export async function generateMetadata({
           height:
             630,
 
+          type:
+            "image/jpeg",
+
           alt:
             program?.title ||
             title,
@@ -503,8 +517,30 @@ export async function generateMetadata({
       description,
 
       images: [
-        socialImage,
+        {
+          url:
+            socialImage,
+
+          alt:
+            program?.title ||
+            title,
+        },
       ],
+    },
+
+    // ========================================================
+    // TAMBAHAN UNTUK CRAWLER LAIN
+    // ========================================================
+
+    other: {
+      "og:image:type":
+        "image/jpeg",
+
+      "og:image:width":
+        "1200",
+
+      "og:image:height":
+        "630",
     },
   };
 }
