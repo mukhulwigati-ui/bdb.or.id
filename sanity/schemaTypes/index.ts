@@ -4,6 +4,7 @@ import news from './news';                  // Skema kabar berita
 import category from './category';          // Skema kategori artikel/berita
 import donationTransaction from './donationTransaction'; // Penampung data transaksi pending (Nama & WA)
 import laporan from './laporan';           // Skema laporan yayasan
+import laporan from './laporan-bulanan';   // Skema laporan bulanan yayasan
 import fundraiser from './fundraiser';      // Skema pendaftaran fundraiser
 import heroBanner from './slider';          // 🚀 Skema hero banner slider
 
