@@ -1,23 +1,35 @@
-// schemas/index.ts
+// sanity/schemaTypes/index.ts
 
-import program from './program'; // Skema program donasi
-import news from './news'; // Skema kabar berita
-import category from './category'; // Skema kategori artikel/berita
-import donationTransaction from './donationTransaction'; // Data transaksi donasi
+import program from './program';
+import news from './news';
+import category from './category';
+import donationTransaction from './donationTransaction';
+
+// ============================================================================
+// LAPORAN
+// ============================================================================
 
 // Laporan campaign / yayasan lama
 import laporan from './laporan';
 
 // Laporan keuangan bulanan baru
-import { laporanBulanan } from './laporan-bulanan';
+import laporanBulanan from './laporanBulanan';
 
-import fundraiser from './fundraiser'; // Skema pendaftaran fundraiser
-import heroBanner from './slider'; // Skema hero banner slider
+// ============================================================================
+// SCHEMA LAIN
+// ============================================================================
+
+import fundraiser from './fundraiser';
+import heroBanner from './slider';
+
+// ============================================================================
+// DAFTAR SELURUH SCHEMA
+// ============================================================================
 
 export const schemaTypes = [
   program,
 
-  // Laporan campaign lama
+  // Laporan campaign
   laporan,
 
   // Laporan keuangan bulanan

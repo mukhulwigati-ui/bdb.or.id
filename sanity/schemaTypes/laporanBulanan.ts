@@ -7,18 +7,39 @@ import {
 } from 'sanity';
 
 // ============================================================================
+// HELPER
+// ============================================================================
+
+const formatRupiah = (value: number = 0): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+};
+
+// ============================================================================
 // LAPORAN KEUANGAN BULANAN
 // ============================================================================
 //
-// CATATAN:
-// - File laporan.ts tetap untuk laporan campaign.
-// - File ini khusus laporan keuangan bulanan.
-// - Export menggunakan nama "laporanBulanan" agar tidak bentrok.
-// - _type tetap "laporanKeuangan" agar cocok dengan app/laporan/page.tsx.
+// PENTING:
+//
+// laporan.ts
+// → tetap digunakan untuk laporan campaign.
+//
+// laporan-bulanan.ts
+// → khusus laporan keuangan bulanan.
+//
+// _type Sanity untuk file ini:
+// → laporanKeuangan
+//
+// Ini sesuai dengan query:
+// *[_type == "laporanKeuangan"]
 //
 // ============================================================================
 
-export const laporanBulanan = defineType({
+const laporanBulanan = defineType({
   name: 'laporanKeuangan',
   title: 'Laporan Keuangan Bulanan',
   type: 'document',
@@ -44,7 +65,7 @@ export const laporanBulanan = defineType({
   ],
 
   // ==========================================================================
-  // FIELDS
+  // FIELD
   // ==========================================================================
 
   fields: [
@@ -57,13 +78,17 @@ export const laporanBulanan = defineType({
       title: 'Judul Laporan',
       type: 'string',
       group: 'informasi',
-      description: 'Contoh: Laporan Keuangan Agustus 2026',
+
+      description:
+        'Contoh: Laporan Keuangan Agustus 2026',
 
       validation: (Rule) =>
         Rule.required()
           .min(5)
           .error('Judul laporan wajib diisi.'),
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'bulan',
@@ -86,12 +111,17 @@ export const laporanBulanan = defineType({
           { title: 'November', value: 'November' },
           { title: 'Desember', value: 'Desember' },
         ],
+
         layout: 'dropdown',
       },
 
       validation: (Rule) =>
-        Rule.required().error('Bulan laporan wajib dipilih.'),
+        Rule.required().error(
+          'Bulan laporan wajib dipilih.'
+        ),
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'tahun',
@@ -99,7 +129,8 @@ export const laporanBulanan = defineType({
       type: 'number',
       group: 'informasi',
 
-      description: 'Contoh: 2026',
+      description:
+        'Contoh: 2026',
 
       validation: (Rule) =>
         Rule.required()
@@ -108,6 +139,8 @@ export const laporanBulanan = defineType({
           .max(2100)
           .error('Masukkan tahun yang valid.'),
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'periode',
@@ -123,12 +156,14 @@ export const laporanBulanan = defineType({
       validation: (Rule) =>
         Rule.required()
           .regex(/^\d{4}-(0[1-9]|1[0-2])$/, {
-            name: 'periode',
+            name: 'periode-bulanan',
           })
           .error(
             'Format periode harus YYYY-MM. Contoh: 2026-08.'
           ),
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'bulanHijriah',
@@ -139,19 +174,25 @@ export const laporanBulanan = defineType({
       description:
         'Contoh: Rabiul Awal 1447 H',
 
-      placeholder: 'Rabiul Awal 1447 H',
+      placeholder:
+        'Rabiul Awal 1447 H',
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'keterangan',
       title: 'Keterangan Laporan',
       type: 'text',
-      rows: 3,
       group: 'informasi',
 
+      rows: 3,
+
       description:
-        'Keterangan singkat mengenai laporan pada bulan tersebut.',
+        'Keterangan singkat mengenai laporan keuangan pada periode tersebut.',
     }),
+
+    // ------------------------------------------------------------------------
 
     defineField({
       name: 'publishedAt',
@@ -159,7 +200,8 @@ export const laporanBulanan = defineType({
       type: 'datetime',
       group: 'informasi',
 
-      initialValue: () => new Date().toISOString(),
+      initialValue: () =>
+        new Date().toISOString(),
 
       validation: (Rule) =>
         Rule.required().error(
@@ -178,7 +220,7 @@ export const laporanBulanan = defineType({
       group: 'pemasukan',
 
       description:
-        'Masukkan seluruh pemasukan, donasi, infak, sedekah, zakat, atau sumber dana lainnya pada bulan ini.',
+        'Masukkan seluruh donasi, infak, sedekah, zakat, atau sumber pemasukan lainnya pada periode ini.',
 
       of: [
         defineArrayMember({
@@ -187,18 +229,27 @@ export const laporanBulanan = defineType({
           type: 'object',
 
           fields: [
+            // ----------------------------------------------------------------
+            // NAMA
+            // ----------------------------------------------------------------
+
             defineField({
               name: 'nama',
               title: 'Nama Donatur / Sumber Dana',
               type: 'string',
 
-              initialValue: 'Hamba Allah',
+              initialValue:
+                'Hamba Allah',
 
               validation: (Rule) =>
                 Rule.required().error(
                   'Nama donatur atau sumber dana wajib diisi.'
                 ),
             }),
+
+            // ----------------------------------------------------------------
+            // TANGGAL
+            // ----------------------------------------------------------------
 
             defineField({
               name: 'tanggal',
@@ -214,6 +265,10 @@ export const laporanBulanan = defineType({
                   'Tanggal pemasukan wajib diisi.'
                 ),
             }),
+
+            // ----------------------------------------------------------------
+            // JUMLAH
+            // ----------------------------------------------------------------
 
             defineField({
               name: 'jumlah',
@@ -232,6 +287,10 @@ export const laporanBulanan = defineType({
                   ),
             }),
 
+            // ----------------------------------------------------------------
+            // KETERANGAN
+            // ----------------------------------------------------------------
+
             defineField({
               name: 'keterangan',
               title: 'Jenis / Keterangan',
@@ -243,7 +302,7 @@ export const laporanBulanan = defineType({
           ],
 
           // ==================================================================
-          // PREVIEW ITEM PEMASUKAN
+          // PREVIEW PEMASUKAN
           // ==================================================================
 
           preview: {
@@ -260,24 +319,24 @@ export const laporanBulanan = defineType({
               tanggal,
               keterangan,
             }) {
-              const nominal = new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              }).format(Number(jumlah || 0));
-
               const detail = [
-                nominal,
+                formatRupiah(
+                  Number(jumlah || 0)
+                ),
+
                 tanggal || null,
+
                 keterangan || null,
               ]
                 .filter(Boolean)
                 .join(' • ');
 
               return {
-                title: nama || 'Hamba Allah',
-                subtitle: detail,
+                title:
+                  nama || 'Hamba Allah',
+
+                subtitle:
+                  detail,
               };
             },
           },
@@ -296,7 +355,7 @@ export const laporanBulanan = defineType({
       group: 'pengeluaran',
 
       description:
-        'Masukkan seluruh penggunaan atau pengeluaran dana pada bulan ini.',
+        'Masukkan seluruh penggunaan atau pengeluaran dana pada periode laporan.',
 
       of: [
         defineArrayMember({
@@ -305,13 +364,17 @@ export const laporanBulanan = defineType({
           type: 'object',
 
           fields: [
+            // ----------------------------------------------------------------
+            // NAMA
+            // ----------------------------------------------------------------
+
             defineField({
               name: 'nama',
               title: 'Nama Pengeluaran',
               type: 'string',
 
               description:
-                'Contoh: Program Dakwah, Operasional, Santunan Dhuafa.',
+                'Contoh: Program Dakwah, Santunan Dhuafa, Operasional, dan sebagainya.',
 
               validation: (Rule) =>
                 Rule.required().error(
@@ -319,13 +382,18 @@ export const laporanBulanan = defineType({
                 ),
             }),
 
+            // ----------------------------------------------------------------
+            // TANGGAL
+            // ----------------------------------------------------------------
+
             defineField({
               name: 'tanggal',
               title: 'Tanggal',
               type: 'date',
 
               options: {
-                dateFormat: 'DD-MM-YYYY',
+                dateFormat:
+                  'DD-MM-YYYY',
               },
 
               validation: (Rule) =>
@@ -333,6 +401,10 @@ export const laporanBulanan = defineType({
                   'Tanggal pengeluaran wajib diisi.'
                 ),
             }),
+
+            // ----------------------------------------------------------------
+            // JUMLAH
+            // ----------------------------------------------------------------
 
             defineField({
               name: 'jumlah',
@@ -351,10 +423,15 @@ export const laporanBulanan = defineType({
                   ),
             }),
 
+            // ----------------------------------------------------------------
+            // KETERANGAN
+            // ----------------------------------------------------------------
+
             defineField({
               name: 'keterangan',
               title: 'Keterangan',
               type: 'text',
+
               rows: 2,
 
               description:
@@ -363,7 +440,7 @@ export const laporanBulanan = defineType({
           ],
 
           // ==================================================================
-          // PREVIEW ITEM PENGELUARAN
+          // PREVIEW PENGELUARAN
           // ==================================================================
 
           preview: {
@@ -371,29 +448,33 @@ export const laporanBulanan = defineType({
               nama: 'nama',
               jumlah: 'jumlah',
               tanggal: 'tanggal',
+              keterangan: 'keterangan',
             },
 
             prepare({
               nama,
               jumlah,
               tanggal,
+              keterangan,
             }) {
-              const nominal = new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              }).format(Number(jumlah || 0));
+              const detail = [
+                formatRupiah(
+                  Number(jumlah || 0)
+                ),
+
+                tanggal || null,
+
+                keterangan || null,
+              ]
+                .filter(Boolean)
+                .join(' • ');
 
               return {
-                title: nama || 'Pengeluaran',
+                title:
+                  nama || 'Pengeluaran',
 
-                subtitle: [
-                  nominal,
-                  tanggal || null,
-                ]
-                  .filter(Boolean)
-                  .join(' • '),
+                subtitle:
+                  detail,
               };
             },
           },
@@ -403,7 +484,7 @@ export const laporanBulanan = defineType({
   ],
 
   // ==========================================================================
-  // URUTAN DOKUMEN
+  // URUTAN LAPORAN DI SANITY
   // ==========================================================================
 
   orderings: [
@@ -437,7 +518,7 @@ export const laporanBulanan = defineType({
   ],
 
   // ==========================================================================
-  // PREVIEW DOKUMEN
+  // PREVIEW DOKUMEN LAPORAN
   // ==========================================================================
 
   preview: {
@@ -445,6 +526,7 @@ export const laporanBulanan = defineType({
       judul: 'judul',
       bulan: 'bulan',
       tahun: 'tahun',
+      periode: 'periode',
       pemasukan: 'pemasukan',
       pengeluaran: 'pengeluaran',
     },
@@ -453,73 +535,94 @@ export const laporanBulanan = defineType({
       judul,
       bulan,
       tahun,
+      periode,
       pemasukan,
       pengeluaran,
     }) {
       // ======================================================================
-      // HITUNG TOTAL PEMASUKAN
+      // TOTAL PEMASUKAN
       // ======================================================================
 
-      const totalPemasukan = Array.isArray(pemasukan)
-        ? pemasukan.reduce(
-            (
-              total: number,
-              item: { jumlah?: number }
-            ) => {
-              return total + Number(item?.jumlah || 0);
-            },
-            0
-          )
-        : 0;
+      const totalPemasukan =
+        Array.isArray(pemasukan)
+          ? pemasukan.reduce(
+              (
+                total: number,
+                item: {
+                  jumlah?: number;
+                }
+              ) =>
+                total +
+                Number(
+                  item?.jumlah || 0
+                ),
+              0
+            )
+          : 0;
 
       // ======================================================================
-      // HITUNG TOTAL PENGELUARAN
+      // TOTAL PENGELUARAN
       // ======================================================================
 
-      const totalPengeluaran = Array.isArray(pengeluaran)
-        ? pengeluaran.reduce(
-            (
-              total: number,
-              item: { jumlah?: number }
-            ) => {
-              return total + Number(item?.jumlah || 0);
-            },
-            0
-          )
-        : 0;
+      const totalPengeluaran =
+        Array.isArray(pengeluaran)
+          ? pengeluaran.reduce(
+              (
+                total: number,
+                item: {
+                  jumlah?: number;
+                }
+              ) =>
+                total +
+                Number(
+                  item?.jumlah || 0
+                ),
+              0
+            )
+          : 0;
 
       // ======================================================================
       // SALDO
       // ======================================================================
 
       const saldo =
-        totalPemasukan - totalPengeluaran;
+        totalPemasukan -
+        totalPengeluaran;
 
       // ======================================================================
-      // FORMAT RUPIAH
+      // PREVIEW
       // ======================================================================
-
-      const formatRupiah = (value: number) =>
-        new Intl.NumberFormat('id-ID', {
-          style: 'currency',
-          currency: 'IDR',
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(value);
 
       return {
         title:
           judul ||
           `Laporan Keuangan ${bulan || ''} ${tahun || ''}`,
 
-        subtitle:
-          `${bulan || '-'} ${tahun || ''}` +
-          ` • Masuk ${formatRupiah(totalPemasukan)}` +
-          ` • Keluar ${formatRupiah(totalPengeluaran)}` +
-          ` • Saldo ${formatRupiah(saldo)}`,
+        subtitle: [
+          periode ||
+            `${bulan || ''} ${tahun || ''}`,
+
+          `Masuk ${formatRupiah(
+            totalPemasukan
+          )}`,
+
+          `Keluar ${formatRupiah(
+            totalPengeluaran
+          )}`,
+
+          `Saldo ${formatRupiah(
+            saldo
+          )}`,
+        ]
+          .filter(Boolean)
+          .join(' • '),
       };
     },
   },
 });
+
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
 
 export default laporanBulanan;
