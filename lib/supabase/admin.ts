@@ -2,58 +2,58 @@
 
 import 'server-only';
 
-import { createClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
 
 // ============================================================================
-// ENVIRONMENT VARIABLES
-// ============================================================================
-
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// ============================================================================
-// VALIDASI ENV
-// ============================================================================
-
-if (!supabaseUrl) {
-  throw new Error(
-    'NEXT_PUBLIC_SUPABASE_URL belum dibuat di environment variables.'
-  );
-}
-
-if (!supabaseServiceRoleKey) {
-  throw new Error(
-    'SUPABASE_SERVICE_ROLE_KEY belum dibuat di environment variables.'
-  );
-}
-
-// ============================================================================
-// SUPABASE ADMIN CLIENT
+// LAZY SUPABASE ADMIN
 // ============================================================================
 //
-// PENTING:
-// Client ini HANYA boleh digunakan di server:
+// Jangan membuat client + throw error saat module pertama kali di-import.
+// Turbopack dapat mengevaluasi module ketika proses build.
 //
-// - app/api/*
-// - Server Actions
-// - Server Components tertentu
-//
-// JANGAN import file ini ke komponen dengan "use client"
-// karena menggunakan SERVICE ROLE KEY.
+// Client baru dibuat ketika API benar-benar dipanggil.
 //
 // ============================================================================
 
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
+let adminClient: SupabaseClient | null = null;
+
+export function getSupabaseAdmin(): SupabaseClient {
+  if (adminClient) {
+    return adminClient;
   }
-);
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_URL belum dibuat di environment variables.'
+    );
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY belum dibuat di environment variables.'
+    );
+  }
+
+  adminClient = createClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
+
+  return adminClient;
+}
