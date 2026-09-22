@@ -1,19 +1,24 @@
 // app/api/views/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+
+// ============================================================================
+// ROUTE CONFIG
+// ============================================================================
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-// =========================================================
+// ============================================================================
 // TYPES
-// =========================================================
+// ============================================================================
 
 type ContentType = "news" | "campaign";
 
-// =========================================================
+// ============================================================================
 // VALIDATOR
-// =========================================================
+// ============================================================================
 
 function isValidType(value: unknown): value is ContentType {
   return value === "news" || value === "campaign";
@@ -27,32 +32,50 @@ function isValidSlug(value: unknown): value is string {
   );
 }
 
-// =========================================================
+// ============================================================================
 // BOT DETECTOR
-// =========================================================
+// ============================================================================
 //
-// Agar Googlebot, Bingbot, Facebook preview,
-// WhatsApp preview, dll tidak menambah jumlah pembaca.
+// Googlebot, Bingbot, Facebook preview, WhatsApp,
+// Telegram, Twitter/X dan crawler lainnya tidak dihitung.
 //
-// =========================================================
+// ============================================================================
 
-function isBot(userAgent: string) {
-  return /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|telegrambot|discordbot|twitterbot|linkedinbot|pinterest/i.test(
+function isBot(userAgent: string): boolean {
+  return /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|telegrambot|discordbot|twitterbot|linkedinbot|pinterest|preview/i.test(
     userAgent
   );
 }
 
-// =========================================================
+// ============================================================================
+// HELPER RESPONSE
+// ============================================================================
+
+function noCacheHeaders() {
+  return {
+    "Cache-Control": "no-store, no-cache, must-revalidate",
+  };
+}
+
+// ============================================================================
 // GET
-// Ambil jumlah view tanpa menambah
-// =========================================================
+// Mengambil jumlah view TANPA menambah counter
+// ============================================================================
 
 export async function GET(request: NextRequest) {
   try {
+    // ------------------------------------------------------------------------
+    // PARAMETER
+    // ------------------------------------------------------------------------
+
     const { searchParams } = new URL(request.url);
 
     const type = searchParams.get("type");
     const slug = searchParams.get("slug");
+
+    // ------------------------------------------------------------------------
+    // VALIDASI TYPE
+    // ------------------------------------------------------------------------
 
     if (!isValidType(type)) {
       return NextResponse.json(
@@ -62,9 +85,14 @@ export async function GET(request: NextRequest) {
         },
         {
           status: 400,
+          headers: noCacheHeaders(),
         }
       );
     }
+
+    // ------------------------------------------------------------------------
+    // VALIDASI SLUG
+    // ------------------------------------------------------------------------
 
     if (!isValidSlug(slug)) {
       return NextResponse.json(
@@ -74,11 +102,25 @@ export async function GET(request: NextRequest) {
         },
         {
           status: 400,
+          headers: noCacheHeaders(),
         }
       );
     }
 
     const cleanSlug = slug.trim();
+
+    // ------------------------------------------------------------------------
+    // SUPABASE ADMIN
+    //
+    // Client baru dibuat di runtime setelah request masuk.
+    // Tidak dibuat saat module sedang dievaluasi oleh Turbopack.
+    // ------------------------------------------------------------------------
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // ------------------------------------------------------------------------
+    // AMBIL COUNTER
+    // ------------------------------------------------------------------------
 
     const { data, error } = await supabaseAdmin
       .from("content_views")
@@ -88,29 +130,41 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error("GET VIEW ERROR:", error);
+      console.error("GET VIEW ERROR:", {
+        type,
+        slug: cleanSlug,
+        error,
+      });
 
       return NextResponse.json(
         {
           success: false,
-          message: "Gagal mengambil jumlah pembaca",
+          message:
+            type === "campaign"
+              ? "Gagal mengambil jumlah pengunjung"
+              : "Gagal mengambil jumlah pembaca",
         },
         {
           status: 500,
+          headers: noCacheHeaders(),
         }
       );
     }
 
+    // ------------------------------------------------------------------------
+    // RESPONSE
+    // ------------------------------------------------------------------------
+
     return NextResponse.json(
       {
         success: true,
+        type,
+        slug: cleanSlug,
         views: Number(data?.views ?? 0),
       },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
+        headers: noCacheHeaders(),
       }
     );
   } catch (error) {
@@ -119,28 +173,60 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Internal server error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Internal server error",
       },
       {
         status: 500,
+        headers: noCacheHeaders(),
       }
     );
   }
 }
 
-// =========================================================
+// ============================================================================
 // POST
-// Tambah jumlah view
-// =========================================================
+// Menambah jumlah view
+// ============================================================================
 
 export async function POST(request: NextRequest) {
   try {
-    const userAgent = request.headers.get("user-agent") || "";
+    // ------------------------------------------------------------------------
+    // USER AGENT
+    // ------------------------------------------------------------------------
 
-    const body = await request.json();
+    const userAgent =
+      request.headers.get("user-agent") || "";
+
+    // ------------------------------------------------------------------------
+    // BODY
+    // ------------------------------------------------------------------------
+
+    let body: any;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Body request tidak valid",
+        },
+        {
+          status: 400,
+          headers: noCacheHeaders(),
+        }
+      );
+    }
 
     const type = body?.type;
     const slug = body?.slug;
+
+    // ------------------------------------------------------------------------
+    // VALIDASI TYPE
+    // ------------------------------------------------------------------------
 
     if (!isValidType(type)) {
       return NextResponse.json(
@@ -150,9 +236,14 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
+          headers: noCacheHeaders(),
         }
       );
     }
+
+    // ------------------------------------------------------------------------
+    // VALIDASI SLUG
+    // ------------------------------------------------------------------------
 
     if (!isValidSlug(slug)) {
       return NextResponse.json(
@@ -162,41 +253,74 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 400,
+          headers: noCacheHeaders(),
         }
       );
     }
 
     const cleanSlug = slug.trim();
 
-    // =====================================================
-    // BOT TIDAK DITAMBAHKAN
-    // =====================================================
+    // ------------------------------------------------------------------------
+    // SUPABASE ADMIN
+    // ------------------------------------------------------------------------
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // =========================================================================
+    // BOT / CRAWLER
+    // =========================================================================
+    //
+    // Bot tidak menambah view.
+    // Hanya mengembalikan counter yang sudah ada.
+    //
+    // =========================================================================
 
     if (isBot(userAgent)) {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("content_views")
         .select("views")
         .eq("content_type", type)
         .eq("slug", cleanSlug)
         .maybeSingle();
 
+      if (error) {
+        console.error("BOT VIEW FETCH ERROR:", {
+          type,
+          slug: cleanSlug,
+          error,
+        });
+      }
+
       return NextResponse.json(
         {
           success: true,
+          type,
+          slug: cleanSlug,
           views: Number(data?.views ?? 0),
           counted: false,
+          reason: "bot",
         },
         {
-          headers: {
-            "Cache-Control": "no-store",
-          },
+          status: 200,
+          headers: noCacheHeaders(),
         }
       );
     }
 
-    // =====================================================
+    // =========================================================================
     // ATOMIC INCREMENT
-    // =====================================================
+    // =========================================================================
+    //
+    // Memanggil function Supabase:
+    //
+    // increment_content_view(
+    //   p_content_type,
+    //   p_slug
+    // )
+    //
+    // Function harus mengembalikan jumlah views terbaru.
+    //
+    // =========================================================================
 
     const { data, error } = await supabaseAdmin.rpc(
       "increment_content_view",
@@ -206,31 +330,82 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // ------------------------------------------------------------------------
+    // ERROR
+    // ------------------------------------------------------------------------
+
     if (error) {
-      console.error("INCREMENT VIEW ERROR:", error);
+      console.error("INCREMENT VIEW ERROR:", {
+        type,
+        slug: cleanSlug,
+        error,
+      });
 
       return NextResponse.json(
         {
           success: false,
-          message: "Gagal menambah jumlah pembaca",
+          message:
+            type === "campaign"
+              ? "Gagal menambah jumlah pengunjung"
+              : "Gagal menambah jumlah pembaca",
         },
         {
           status: 500,
+          headers: noCacheHeaders(),
         }
       );
     }
 
+    // ------------------------------------------------------------------------
+    // NORMALISASI HASIL RPC
+    // ------------------------------------------------------------------------
+
+    let views = 0;
+
+    if (typeof data === "number") {
+      views = data;
+    } else if (typeof data === "string") {
+      views = Number(data) || 0;
+    } else if (Array.isArray(data) && data.length > 0) {
+      const first = data[0];
+
+      if (typeof first === "number") {
+        views = first;
+      } else if (typeof first === "object" && first !== null) {
+        views = Number(
+          first.views ??
+            first.increment_content_view ??
+            0
+        );
+      }
+    } else if (
+      typeof data === "object" &&
+      data !== null
+    ) {
+      const result = data as Record<string, unknown>;
+
+      views = Number(
+        result.views ??
+          result.increment_content_view ??
+          0
+      );
+    }
+
+    // ------------------------------------------------------------------------
+    // RESPONSE
+    // ------------------------------------------------------------------------
+
     return NextResponse.json(
       {
         success: true,
-        views: Number(data ?? 0),
+        type,
+        slug: cleanSlug,
+        views,
         counted: true,
       },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-        },
+        headers: noCacheHeaders(),
       }
     );
   } catch (error) {
@@ -239,10 +414,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Internal server error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Internal server error",
       },
       {
         status: 500,
+        headers: noCacheHeaders(),
       }
     );
   }
