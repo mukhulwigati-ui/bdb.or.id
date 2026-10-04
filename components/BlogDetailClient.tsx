@@ -28,20 +28,20 @@ const portableTextComponents = {
           : 'Gambar Berita';
 
       return (
-        <div className="my-6 w-full space-y-2 text-left">
-          <div className="aspect-[16/9] overflow-hidden border border-gray-200/90 bg-gray-50 shadow-sm">
+        <div className="my-6 min-w-0 w-full max-w-full space-y-2 overflow-hidden text-left">
+          <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200/90 bg-gray-50 shadow-sm">
             <img
               src={value.asset.url}
               alt={imageAlt}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover"
+              className="h-full w-full max-w-full object-cover"
             />
           </div>
 
           {typeof value?.caption === 'string' &&
             value.caption.trim() && (
-              <p className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
+              <p className="max-w-full break-words text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
                 {value.caption}
               </p>
             )}
@@ -70,7 +70,16 @@ const portableTextComponents = {
           href={href}
           rel={!isInternal ? 'noreferrer noopener' : undefined}
           target={!isInternal ? '_blank' : undefined}
-          className="font-bold text-[#0d5c91] underline underline-offset-2 transition-colors hover:text-sky-900"
+          className="
+            max-w-full
+            break-all
+            font-bold
+            text-[#0d5c91]
+            underline
+            underline-offset-2
+            transition-colors
+            hover:text-sky-900
+          "
         >
           {children}
         </a>
@@ -84,31 +93,104 @@ const portableTextComponents = {
 
   block: {
     normal: ({ children }: any) => (
-      <p className="mb-5 text-base leading-relaxed text-slate-800 sm:text-lg">
+      <p
+        className="
+          mb-5
+          min-w-0
+          max-w-full
+          break-words
+          whitespace-normal
+          text-base
+          leading-relaxed
+          text-slate-800
+          sm:text-lg
+        "
+      >
         {children}
       </p>
     ),
 
     h1: ({ children }: any) => (
-      <h1 className="mb-4 mt-8 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+      <h1
+        className="
+          mb-4
+          mt-8
+          min-w-0
+          max-w-full
+          break-words
+          whitespace-normal
+          text-xl
+          font-extrabold
+          leading-snug
+          tracking-tight
+          text-slate-900
+          sm:text-2xl
+        "
+      >
         {children}
       </h1>
     ),
 
     h2: ({ children }: any) => (
-      <h2 className="mb-3 mt-7 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+      <h2
+        className="
+          mb-3
+          mt-7
+          min-w-0
+          max-w-full
+          break-words
+          whitespace-normal
+          text-lg
+          font-bold
+          leading-snug
+          tracking-tight
+          text-slate-900
+          sm:text-xl
+        "
+      >
         {children}
       </h2>
     ),
 
     h3: ({ children }: any) => (
-      <h3 className="mb-2.5 mt-5 text-base font-bold text-slate-800 sm:text-lg">
+      <h3
+        className="
+          mb-2.5
+          mt-5
+          min-w-0
+          max-w-full
+          break-words
+          whitespace-normal
+          text-base
+          font-bold
+          leading-snug
+          text-slate-800
+          sm:text-lg
+        "
+      >
         {children}
       </h3>
     ),
 
     blockquote: ({ children }: any) => (
-      <blockquote className="my-5 border-l-4 border-[#0d5c91] bg-sky-50/60 py-3 pl-4 pr-3 italic leading-relaxed text-slate-700">
+      <blockquote
+        className="
+          my-5
+          min-w-0
+          max-w-full
+          overflow-hidden
+          break-words
+          border-l-4
+          border-[#0d5c91]
+          bg-sky-50/60
+          py-3
+          pl-4
+          pr-3
+          italic
+          leading-relaxed
+          text-slate-700
+        "
+      >
         {children}
       </blockquote>
     ),
@@ -120,15 +202,59 @@ const portableTextComponents = {
 
   list: {
     bullet: ({ children }: any) => (
-      <ul className="mb-5 list-disc space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
+      <ul
+        className="
+          mb-5
+          min-w-0
+          max-w-full
+          list-disc
+          space-y-2
+          break-words
+          pl-6
+          text-base
+          text-slate-800
+          sm:text-lg
+        "
+      >
         {children}
       </ul>
     ),
 
     number: ({ children }: any) => (
-      <ol className="mb-5 list-decimal space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
+      <ol
+        className="
+          mb-5
+          min-w-0
+          max-w-full
+          list-decimal
+          space-y-2
+          break-words
+          pl-6
+          text-base
+          text-slate-800
+          sm:text-lg
+        "
+      >
         {children}
       </ol>
+    ),
+  },
+
+  // ==========================================================================
+  // LIST ITEM
+  // ==========================================================================
+
+  listItem: {
+    bullet: ({ children }: any) => (
+      <li className="min-w-0 max-w-full break-words leading-relaxed">
+        {children}
+      </li>
+    ),
+
+    number: ({ children }: any) => (
+      <li className="min-w-0 max-w-full break-words leading-relaxed">
+        {children}
+      </li>
     ),
   },
 };
@@ -310,8 +436,8 @@ export default function BlogDetailClient({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24 pt-6">
-        <div className="mx-auto w-full max-w-md space-y-4 px-3 animate-pulse">
+      <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-24 pt-6">
+        <div className="mx-auto w-full max-w-3xl animate-pulse space-y-4 px-4 sm:px-6 lg:px-8">
 
           {/* Judul */}
 
@@ -355,7 +481,7 @@ export default function BlogDetailClient({
     !data.article
   ) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 pb-24 pt-16 text-center">
+      <div className="min-h-screen overflow-x-hidden bg-gray-50 px-4 pb-24 pt-16 text-center">
 
         <div className="mx-auto max-w-sm border border-gray-200 bg-white px-5 py-10">
 
@@ -424,19 +550,33 @@ export default function BlogDetailClient({
   // ==========================================================================
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-28 pt-4">
+    <main className="min-h-screen w-full overflow-x-hidden bg-gray-50 pb-28 pt-4">
 
       {/* ==================================================================== */}
       {/* CONTAINER */}
       {/* ==================================================================== */}
 
-      <div className="mx-auto w-full max-w-md space-y-4 px-3">
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 lg:px-8">
 
         {/* ================================================================== */}
         {/* ARTICLE */}
         {/* ================================================================== */}
 
-        <article className="space-y-4 border border-gray-200/90 bg-white p-4 shadow-sm sm:p-6">
+        <article
+          className="
+            min-w-0
+            w-full
+            max-w-full
+            overflow-hidden
+            space-y-4
+            border
+            border-gray-200/90
+            bg-white
+            p-4
+            shadow-sm
+            sm:p-6
+          "
+        >
 
           {/* ================================================================ */}
           {/* BREADCRUMB */}
@@ -444,33 +584,39 @@ export default function BlogDetailClient({
 
           <nav
             aria-label="Breadcrumb"
-            className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400"
+            className="flex min-w-0 max-w-full flex-wrap items-center gap-2 text-xs font-medium text-slate-400"
           >
             <Link
               href="/"
-              className="transition-colors hover:text-[#0d5c91]"
+              className="shrink-0 transition-colors hover:text-[#0d5c91]"
             >
               Home
             </Link>
 
-            <span aria-hidden="true">
+            <span
+              aria-hidden="true"
+              className="shrink-0"
+            >
               /
             </span>
 
             <Link
               href="/blog"
-              className="transition-colors hover:text-[#0d5c91]"
+              className="shrink-0 transition-colors hover:text-[#0d5c91]"
             >
               Berita
             </Link>
 
             {categoryString && (
               <>
-                <span aria-hidden="true">
+                <span
+                  aria-hidden="true"
+                  className="shrink-0"
+                >
                   /
                 </span>
 
-                <span className="truncate text-slate-500">
+                <span className="min-w-0 max-w-full truncate text-slate-500">
                   {categoryString}
                 </span>
               </>
@@ -481,7 +627,20 @@ export default function BlogDetailClient({
           {/* JUDUL */}
           {/* ================================================================ */}
 
-          <h1 className="text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
+          <h1
+            className="
+              min-w-0
+              max-w-full
+              break-words
+              whitespace-normal
+              text-xl
+              font-extrabold
+              leading-snug
+              tracking-tight
+              text-slate-900
+              sm:text-2xl
+            "
+          >
             {titleString}
           </h1>
 
@@ -489,16 +648,19 @@ export default function BlogDetailClient({
           {/* METADATA: TANGGAL + JUMLAH PEMBACA */}
           {/* ================================================================ */}
 
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-100 pb-3">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-100 pb-3">
 
             {/* Tanggal */}
 
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 sm:text-sm">
-              <span aria-hidden="true">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-500 sm:text-sm">
+              <span
+                aria-hidden="true"
+                className="shrink-0"
+              >
                 📅
               </span>
 
-              <span>
+              <span className="min-w-0 break-words">
                 {formattedDate}
               </span>
             </span>
@@ -519,20 +681,20 @@ export default function BlogDetailClient({
           {/* GAMBAR UTAMA */}
           {/* ================================================================ */}
 
-          <div className="w-full space-y-2 pt-1">
+          <div className="min-w-0 w-full max-w-full space-y-2 overflow-hidden pt-1">
 
-            <div className="aspect-[16/9] w-full overflow-hidden border border-gray-200/80 bg-gray-100 shadow-inner">
+            <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200/80 bg-gray-100 shadow-inner">
               <img
                 src={imageUrl}
                 alt={imageAlt}
                 fetchPriority="high"
                 decoding="async"
-                className="h-full w-full object-cover"
+                className="h-full w-full max-w-full object-cover"
               />
             </div>
 
             {article?.caption && (
-              <p className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
+              <p className="max-w-full break-words text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
                 Foto:{' '}
                 {renderSafeString(
                   article.caption,
@@ -547,28 +709,45 @@ export default function BlogDetailClient({
           {/* ISI ARTIKEL */}
           {/* ================================================================ */}
 
-          <div className="border-b border-gray-100 pb-6 pt-2">
+          <div
+            className="
+              min-w-0
+              w-full
+              max-w-full
+              overflow-hidden
+              break-words
+              border-b
+              border-gray-100
+              pb-6
+              pt-2
 
+              [&_*]:max-w-full
+              [&_img]:h-auto
+              [&_img]:max-w-full
+              [&_pre]:max-w-full
+              [&_pre]:overflow-x-auto
+              [&_table]:max-w-full
+            "
+          >
             {article?.content ? (
               <PortableText
                 value={article.content}
                 components={portableTextComponents}
               />
             ) : (
-              <p className="text-base italic text-slate-400">
+              <p className="max-w-full break-words text-base italic text-slate-400">
                 Isi berita belum diunggah.
               </p>
             )}
-
           </div>
 
           {/* ================================================================ */}
           {/* SHARE */}
           {/* ================================================================ */}
 
-          <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-3 pt-1">
 
-            <span className="text-xs font-bold text-slate-600 sm:text-sm">
+            <span className="min-w-0 break-words text-xs font-bold text-slate-600 sm:text-sm">
               Bagikan berita ini:
             </span>
 
@@ -576,6 +755,7 @@ export default function BlogDetailClient({
               type="button"
               onClick={handleCopyLink}
               className="
+                shrink-0
                 border
                 border-sky-100
                 bg-sky-50
@@ -603,7 +783,7 @@ export default function BlogDetailClient({
         {/* ARTIKEL TERKAIT */}
         {/* ================================================================== */}
 
-        <div className="pt-2">
+        <div className="min-w-0 w-full max-w-full overflow-hidden pt-2">
 
           <RelatedNews
             currentSlug={slug}
