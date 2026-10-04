@@ -14,10 +14,6 @@ import ViewCounter from '@/components/ViewCounter';
 // ============================================================================
 
 const portableTextComponents = {
-  // ==========================================================================
-  // CUSTOM TYPE
-  // ==========================================================================
-
   types: {
     image: ({ value }: any) => {
       if (!value?.asset?.url) return null;
@@ -28,20 +24,20 @@ const portableTextComponents = {
           : 'Gambar Berita';
 
       return (
-        <div className="my-6 min-w-0 w-full max-w-full space-y-2 overflow-hidden text-left">
-          <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200/90 bg-gray-50 shadow-sm">
+        <div className="my-6 min-w-0 w-full max-w-full space-y-2 overflow-hidden">
+          <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200 bg-gray-50">
             <img
               src={value.asset.url}
               alt={imageAlt}
               loading="lazy"
               decoding="async"
-              className="h-full w-full max-w-full object-cover"
+              className="block h-full w-full max-w-full object-cover"
             />
           </div>
 
           {typeof value?.caption === 'string' &&
             value.caption.trim() && (
-              <p className="max-w-full break-words text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
+              <p className="max-w-full break-words text-center text-xs italic leading-relaxed text-slate-500">
                 {value.caption}
               </p>
             )}
@@ -51,7 +47,7 @@ const portableTextComponents = {
   },
 
   // ==========================================================================
-  // MARK
+  // LINK
   // ==========================================================================
 
   marks: {
@@ -324,11 +320,8 @@ export default function BlogDetailClient({
   slug,
 }: BlogDetailClientProps) {
   const [data, setData] = useState<any>(null);
-
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState(false);
-
   const [copied, setCopied] = useState(false);
 
   // ==========================================================================
@@ -436,38 +429,42 @@ export default function BlogDetailClient({
 
   if (loading) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-gray-50 pb-24 pt-6">
-        <div className="mx-auto w-full max-w-3xl animate-pulse space-y-4 px-4 sm:px-6 lg:px-8">
+      <main className="min-h-screen w-full overflow-x-hidden bg-gray-50 pb-28 pt-4">
+        <div
+          className="
+            mx-auto
+            w-[calc(100%-1.5rem)]
+            max-w-[calc(28rem-1.5rem)]
+            animate-pulse
+            space-y-4
+          "
+        >
+          <div className="border border-gray-200 bg-white p-4 sm:p-5">
+            <div className="space-y-3">
+              <div className="h-3 w-40 bg-gray-200" />
 
-          {/* Judul */}
+              <div className="space-y-2 pt-2">
+                <div className="h-6 w-full bg-gray-200" />
+                <div className="h-6 w-3/4 bg-gray-200" />
+              </div>
 
-          <div className="space-y-2">
-            <div className="h-6 w-full bg-gray-200" />
-            <div className="h-6 w-3/4 bg-gray-200" />
+              <div className="flex justify-between border-b border-gray-100 pb-3 pt-1">
+                <div className="h-3 w-28 bg-gray-200" />
+                <div className="h-3 w-20 bg-gray-200" />
+              </div>
+
+              <div className="aspect-[16/9] w-full bg-gray-200" />
+
+              <div className="space-y-3 pt-2">
+                <div className="h-4 w-full bg-gray-200" />
+                <div className="h-4 w-full bg-gray-200" />
+                <div className="h-4 w-full bg-gray-200" />
+                <div className="h-4 w-2/3 bg-gray-200" />
+              </div>
+            </div>
           </div>
-
-          {/* Metadata */}
-
-          <div className="flex justify-between">
-            <div className="h-3 w-28 bg-gray-200" />
-            <div className="h-3 w-20 bg-gray-200" />
-          </div>
-
-          {/* Gambar */}
-
-          <div className="aspect-[16/9] w-full bg-gray-200" />
-
-          {/* Isi */}
-
-          <div className="space-y-3 pt-2">
-            <div className="h-4 w-full bg-gray-200" />
-            <div className="h-4 w-full bg-gray-200" />
-            <div className="h-4 w-full bg-gray-200" />
-            <div className="h-4 w-2/3 bg-gray-200" />
-          </div>
-
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -481,32 +478,50 @@ export default function BlogDetailClient({
     !data.article
   ) {
     return (
-      <div className="min-h-screen overflow-x-hidden bg-gray-50 px-4 pb-24 pt-16 text-center">
+      <main className="min-h-screen w-full overflow-x-hidden bg-gray-50 pb-28 pt-10">
+        <div
+          className="
+            mx-auto
+            w-[calc(100%-1.5rem)]
+            max-w-[calc(28rem-1.5rem)]
+          "
+        >
+          <div className="border border-gray-200 bg-white px-5 py-10 text-center shadow-sm">
+            <div className="mb-3 text-3xl">
+              📄
+            </div>
 
-        <div className="mx-auto max-w-sm border border-gray-200 bg-white px-5 py-10">
+            <p className="text-base font-bold text-slate-700">
+              Artikel tidak ditemukan
+            </p>
 
-          <div className="mb-3 text-3xl">
-            📄
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Artikel mungkin telah dipindahkan,
+              dihapus, atau belum diterbitkan.
+            </p>
+
+            <Link
+              href="/blog"
+              className="
+                mt-5
+                inline-flex
+                border
+                border-sky-100
+                bg-sky-50
+                px-4
+                py-2.5
+                text-xs
+                font-bold
+                text-[#0d5c91]
+                transition
+                hover:bg-sky-100
+              "
+            >
+              ← Kembali ke Berita
+            </Link>
           </div>
-
-          <p className="text-base font-bold text-slate-700">
-            Artikel tidak ditemukan
-          </p>
-
-          <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            Artikel mungkin telah dipindahkan,
-            dihapus, atau belum diterbitkan.
-          </p>
-
-          <Link
-            href="/blog"
-            className="mt-5 inline-flex border border-sky-100 bg-sky-50 px-4 py-2.5 text-xs font-bold text-[#0d5c91] transition hover:bg-sky-100"
-          >
-            ← Kembali ke Berita
-          </Link>
-
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -550,14 +565,37 @@ export default function BlogDetailClient({
   // ==========================================================================
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-gray-50 pb-28 pt-4">
-
+    <main
+      className="
+        min-h-screen
+        w-full
+        overflow-x-hidden
+        bg-gray-50
+        pb-28
+        pt-4
+      "
+    >
       {/* ==================================================================== */}
       {/* CONTAINER */}
       {/* ==================================================================== */}
+      {/*
+        PENTING:
+        Lebar container ini dibuat SAMA PERSIS dengan BottomNav:
 
-      <div className="mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 lg:px-8">
+        w-[calc(100%-1.5rem)]
+        max-w-[calc(28rem-1.5rem)]
 
+        Jadi sisi kiri dan kanan artikel akan sejajar dengan BottomNav.
+      */}
+
+      <div
+        className="
+          mx-auto
+          w-[calc(100%-1.5rem)]
+          max-w-[calc(28rem-1.5rem)]
+          space-y-4
+        "
+      >
         {/* ================================================================== */}
         {/* ARTICLE */}
         {/* ================================================================== */}
@@ -574,21 +612,34 @@ export default function BlogDetailClient({
             bg-white
             p-4
             shadow-sm
-            sm:p-6
+            sm:p-5
           "
         >
-
           {/* ================================================================ */}
           {/* BREADCRUMB */}
           {/* ================================================================ */}
 
           <nav
             aria-label="Breadcrumb"
-            className="flex min-w-0 max-w-full flex-wrap items-center gap-2 text-xs font-medium text-slate-400"
+            className="
+              flex
+              min-w-0
+              max-w-full
+              flex-wrap
+              items-center
+              gap-2
+              text-xs
+              font-medium
+              text-slate-400
+            "
           >
             <Link
               href="/"
-              className="shrink-0 transition-colors hover:text-[#0d5c91]"
+              className="
+                shrink-0
+                transition-colors
+                hover:text-[#0d5c91]
+              "
             >
               Home
             </Link>
@@ -602,7 +653,11 @@ export default function BlogDetailClient({
 
             <Link
               href="/blog"
-              className="shrink-0 transition-colors hover:text-[#0d5c91]"
+              className="
+                shrink-0
+                transition-colors
+                hover:text-[#0d5c91]
+              "
             >
               Berita
             </Link>
@@ -616,7 +671,14 @@ export default function BlogDetailClient({
                   /
                 </span>
 
-                <span className="min-w-0 max-w-full truncate text-slate-500">
+                <span
+                  className="
+                    min-w-0
+                    max-w-full
+                    truncate
+                    text-slate-500
+                  "
+                >
                   {categoryString}
                 </span>
               </>
@@ -645,14 +707,36 @@ export default function BlogDetailClient({
           </h1>
 
           {/* ================================================================ */}
-          {/* METADATA: TANGGAL + JUMLAH PEMBACA */}
+          {/* METADATA */}
           {/* ================================================================ */}
 
-          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-100 pb-3">
-
-            {/* Tanggal */}
-
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-500 sm:text-sm">
+          <div
+            className="
+              flex
+              min-w-0
+              max-w-full
+              flex-wrap
+              items-center
+              justify-between
+              gap-x-4
+              gap-y-2
+              border-b
+              border-gray-100
+              pb-3
+            "
+          >
+            <span
+              className="
+                inline-flex
+                min-w-0
+                items-center
+                gap-1.5
+                text-xs
+                font-semibold
+                text-slate-500
+                sm:text-sm
+              "
+            >
               <span
                 aria-hidden="true"
                 className="shrink-0"
@@ -665,36 +749,67 @@ export default function BlogDetailClient({
               </span>
             </span>
 
-            {/* ============================================================ */}
-            {/* VIEW COUNTER */}
-            {/* ============================================================ */}
-
             <ViewCounter
               type="news"
               slug={slug}
               className="shrink-0 font-medium"
             />
-
           </div>
 
           {/* ================================================================ */}
           {/* GAMBAR UTAMA */}
           {/* ================================================================ */}
 
-          <div className="min-w-0 w-full max-w-full space-y-2 overflow-hidden pt-1">
-
-            <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200/80 bg-gray-100 shadow-inner">
+          <div
+            className="
+              min-w-0
+              w-full
+              max-w-full
+              space-y-2
+              overflow-hidden
+              pt-1
+            "
+          >
+            <div
+              className="
+                aspect-[16/9]
+                w-full
+                max-w-full
+                overflow-hidden
+                border
+                border-gray-200/80
+                bg-gray-100
+              "
+            >
               <img
                 src={imageUrl}
                 alt={imageAlt}
                 fetchPriority="high"
                 decoding="async"
-                className="h-full w-full max-w-full object-cover"
+                className="
+                  block
+                  h-full
+                  w-full
+                  max-w-full
+                  object-cover
+                "
               />
             </div>
 
             {article?.caption && (
-              <p className="max-w-full break-words text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
+              <p
+                className="
+                  max-w-full
+                  break-words
+                  text-center
+                  text-xs
+                  font-medium
+                  italic
+                  leading-relaxed
+                  text-slate-500
+                  sm:text-sm
+                "
+              >
                 Foto:{' '}
                 {renderSafeString(
                   article.caption,
@@ -702,7 +817,6 @@ export default function BlogDetailClient({
                 )}
               </p>
             )}
-
           </div>
 
           {/* ================================================================ */}
@@ -727,6 +841,7 @@ export default function BlogDetailClient({
               [&_pre]:max-w-full
               [&_pre]:overflow-x-auto
               [&_table]:max-w-full
+              [&_table]:overflow-x-auto
             "
           >
             {article?.content ? (
@@ -735,7 +850,15 @@ export default function BlogDetailClient({
                 components={portableTextComponents}
               />
             ) : (
-              <p className="max-w-full break-words text-base italic text-slate-400">
+              <p
+                className="
+                  max-w-full
+                  break-words
+                  text-base
+                  italic
+                  text-slate-400
+                "
+              >
                 Isi berita belum diunggah.
               </p>
             )}
@@ -745,9 +868,28 @@ export default function BlogDetailClient({
           {/* SHARE */}
           {/* ================================================================ */}
 
-          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-3 pt-1">
-
-            <span className="min-w-0 break-words text-xs font-bold text-slate-600 sm:text-sm">
+          <div
+            className="
+              flex
+              min-w-0
+              max-w-full
+              flex-wrap
+              items-center
+              justify-between
+              gap-3
+              pt-1
+            "
+          >
+            <span
+              className="
+                min-w-0
+                break-words
+                text-xs
+                font-bold
+                text-slate-600
+                sm:text-sm
+              "
+            >
               Bagikan berita ini:
             </span>
 
@@ -774,17 +916,22 @@ export default function BlogDetailClient({
                 ? '✓ Link Disalin'
                 : '🔗 Salin Link'}
             </button>
-
           </div>
-
         </article>
 
         {/* ================================================================== */}
         {/* ARTIKEL TERKAIT */}
         {/* ================================================================== */}
 
-        <div className="min-w-0 w-full max-w-full overflow-hidden pt-2">
-
+        <div
+          className="
+            min-w-0
+            w-full
+            max-w-full
+            overflow-hidden
+            pt-2
+          "
+        >
           <RelatedNews
             currentSlug={slug}
             category={categoryString}
@@ -794,9 +941,7 @@ export default function BlogDetailClient({
                 : []
             }
           />
-
         </div>
-
       </div>
     </main>
   );
