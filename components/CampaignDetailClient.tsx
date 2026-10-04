@@ -1693,22 +1693,34 @@ export default function CampaignDetailClient({
 
                           <div className="text-sm leading-relaxed text-slate-800 sm:text-base">
 
-                            {typeof report.content ===
-                            'string' ? (
-                              <p>
-                                {
-                                  report.content
-                                }
-                              </p>
-                            ) : report.content ? (
-                              <PortableText
-                                value={
-                                  report.content
-                                }
-                              />
-                            ) : null}
+  {typeof report.content === 'string' ? (
+    <div className="space-y-4">
+      {report.content
+        .split(/\n\s*\n/)
+        .filter((paragraph: string) => paragraph.trim())
+        .map((paragraph: string, paragraphIndex: number) => (
+          <p
+            key={paragraphIndex}
+            className="whitespace-pre-line"
+          >
+            {paragraph.trim()}
+          </p>
+        ))}
+    </div>
+  ) : report.content ? (
+    <div
+      className="
+        [&>p]:mb-4
+        [&>p:last-child]:mb-0
+      "
+    >
+      <PortableText
+        value={report.content}
+      />
+    </div>
+  ) : null}
 
-                          </div>
+</div>
 
                         </div>
                       )
