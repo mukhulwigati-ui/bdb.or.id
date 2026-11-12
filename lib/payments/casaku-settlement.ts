@@ -27,7 +27,8 @@ const dataset =
   "production";
 
 const sanityToken =
-  process.env.SANITY_API_TOKEN;
+  process.env.SANITY_API_TOKEN ||
+  process.env.SANITY_API_WRITE_TOKEN;
 
 if (!projectId) {
   throw new Error(
@@ -1347,6 +1348,72 @@ export async function ensureDonationCredits(
     fundraiser,
   };
 }
+
+
+// ============================================================================
+// SETTLE FROM VERIFIED CASAKU WEBHOOK
+// ============================================================================
+
+export async function settleCasakuWebhook({
+  transactionId,
+  amount,
+  packageName,
+  appName,
+  paidAt,
+}: {
+  transactionId: string;
+  amount: number;
+  packageName?: string;
+  appName?: string;
+  paidAt?: string | null;
+}) {
+  const transaction =
+    await getDonationByTransactionId(transactionId);
+
+  if (!transaction) {
+    throw new Error("Transaksi BDB tidak ditemukan.");
+  }
+
+  const expectedAmount = safeNumber(
+    transaction.paymentAmount ?? transaction.amount
+  );
+
+  if (
+    expectedAmount <= 0 ||
+    amount !== expectedAmount
+  ) {
+    throw new Error("Nominal webhook tidak cocok dengan transaksi.");
+  }
+
+  if (transaction.status !== "success") {
+    await markTransactionSuccess(transaction, {
+      status: "paid",
+      transactionId,
+      amount,
+      paidAt: paidAt || new Date().toISOString(),
+      expiredAt: null,
+      packageName: packageName || "",
+      appName: appName || "",
+    });
+  }
+
+  const refreshed =
+    await getDonationById(transaction._id);
+
+  if (!refreshed) {
+    throw new Error("Gagal membaca transaksi setelah settlement.");
+  }
+
+  const credits =
+    await ensureDonationCredits(refreshed);
+
+  return {
+    success: true,
+    transaction: await getDonationById(transaction._id),
+    credits,
+  };
+}
+
 
 // ============================================================================
 // RECONCILE ONE TRANSACTION

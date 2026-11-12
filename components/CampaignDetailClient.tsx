@@ -111,12 +111,14 @@ interface DonateApiResponse {
   transactionId?: string;
 
   amount?: number;
+  paymentAmount?: number;
   totalAmount?: number;
 
   qrString?: string;
 
   status?: PaymentStatus;
 
+  expiresAt?: string | null;
   expiredAt?: string | null;
   expiredInMinutes?: number;
 }
@@ -2303,43 +2305,35 @@ export default function CampaignDetailClient({
           );
         }
 
-        const newPayment: CasakuPayment =
-          {
-            orderId:
-              json.orderId,
+        const newPayment: CasakuPayment = {
+  orderId: json.orderId,
+  transactionId: json.transactionId,
 
-            transactionId:
-              json.transactionId,
+  amount: Number(
+    json.amount ?? cleanAmount
+  ),
 
-            amount:
-              Number(
-                json.amount ||
-                  cleanAmount
-              ),
+  totalAmount: Number(
+    json.paymentAmount ??
+    json.totalAmount ??
+    json.amount ??
+    cleanAmount
+  ),
 
-            totalAmount:
-              Number(
-                json.totalAmount ||
-                  json.amount ||
-                  cleanAmount
-              ),
+  qrString: json.qrString,
 
-            qrString:
-              json.qrString,
+  status: normalizePaymentStatus(
+    json.status
+  ),
 
-            status:
-              normalizePaymentStatus(
-                json.status
-              ),
+  expiredAt:
+    json.expiresAt ??
+    json.expiredAt ??
+    null,
 
-            expiredAt:
-              json.expiredAt ||
-              null,
-
-            expiredInMinutes:
-              json.expiredInMinutes ||
-              15,
-          };
+  expiredInMinutes:
+    json.expiredInMinutes ?? 15,
+};
 
         setPayment(
           newPayment
