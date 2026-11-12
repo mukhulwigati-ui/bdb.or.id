@@ -10,20 +10,6 @@ import crypto from "crypto";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const sanityToken =
-  process.env.SANITY_API_TOKEN ||
-  process.env.SANITY_API_WRITE_TOKEN;
-
-const sanityClient = createClient({
-  projectId:
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "xqggeww8",
-  dataset:
-    process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
-  apiVersion: "2026-08-31",
-  useCdn: false,
-  token: sanityToken,
-});
-
 const CASAKU_GENERATE_URL =
   "https://api.casaku.id/api/generate/v2/qris";
 
@@ -31,19 +17,48 @@ const QRIS_ID =
   process.env.CASAKU_QRIS_ID ||
   "7a08021a-160b-410a-a561-b784590418f0";
 
-function getRequiredEnv(name: string, value?: string) {
+function getRequiredEnv(name: string, value?: string): string {
   const result = value?.trim();
 
   if (!result) {
-    throw new Error(`${name} belum dikonfigurasi.`);
+    throw new Error(`${name} belum dikonfigurasi di Vercel.`);
   }
 
   return result;
 }
 
+function getSanityClient() {
+  const projectId = getRequiredEnv(
+    "NEXT_PUBLIC_SANITY_PROJECT_ID",
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+  );
+
+  const dataset = (
+    process.env.NEXT_PUBLIC_SANITY_DATASET || "production"
+  ).trim();
+
+  const token = getRequiredEnv(
+    "SANITY_API_TOKEN / SANITY_API_WRITE_TOKEN",
+    process.env.SANITY_API_WRITE_TOKEN ||
+      process.env.SANITY_API_TOKEN
+  );
+
+  return createClient({
+    projectId,
+    dataset,
+    apiVersion: "2026-08-31",
+    useCdn: false,
+    token,
+  });
+}
+
 export async function POST(request: Request) {
   try {
-    getRequiredEnv("SANITY_API_TOKEN", sanityToken);
+    // =========================================
+    // 1. VALIDASI KONFIGURASI
+    // =========================================
+
+    const sanityClient = getSanityClient();
 
     const licenseKey = getRequiredEnv(
       "CASAKU_LICENSE_KEY",
@@ -61,32 +76,39 @@ export async function POST(request: Request) {
       throw new Error("CASAKU_PACKAGE_IDS belum dikonfigurasi.");
     }
 
+    // =========================================
+    // 2. AMBIL DATA DONASI
+    // =========================================
+
     const body = await request.json();
 
-    const donorName =
-      String(body.donorName || "Hamba Allah").trim().slice(0, 150);
+    const donorName = String(
+      body.donorName || "Hamba Allah"
+    ).trim().slice(0, 150);
 
-    const phone =
-      String(body.phone || "").trim().slice(0, 30);
+    const phone = String(
+      body.phone || ""
+    ).trim().slice(0, 30);
 
-    const email =
-      String(body.email || "").trim().slice(0, 150);
+    const email = String(
+      body.email || ""
+    ).trim().slice(0, 150);
 
-    const fundraiserPhone =
-      String(body.fundraiserPhone || "").trim().slice(0, 30);
+    const fundraiserPhone = String(
+      body.fundraiserPhone || ""
+    ).trim().slice(0, 30);
 
-    const programId =
-      String(body.programId || "").trim();
+    const programId = String(
+      body.programId || ""
+    ).trim();
 
-    const programTitle =
-      String(body.programTitle || "Sedekah / Infaq Online")
-        .trim()
-        .slice(0, 150);
+    const programTitle = String(
+      body.programTitle || "Sedekah / Infak Online"
+    ).trim().slice(0, 150);
 
-    const category =
-      String(body.category || "Kemanusiaan")
-        .trim()
-        .slice(0, 100);
+    const category = String(
+      body.category || "Kemanusiaan"
+    ).trim().slice(0, 100);
 
     const amount = Number(
       String(body.amount || "").replace(/[^0-9]/g, "")
@@ -102,10 +124,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // =========================================
+    // 3. BUAT ORDER ID INTERNAL BDB
+    // =========================================
+
     const orderId =
       `BDB-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 
-    // Ambil identitas user Supabase jika tersedia.
+    // =========================================
+    // 4. IDENTIFIKASI USER SUPABASE
+    // =========================================
+
     const cookieStore = await cookies();
 
     const supabaseUrl =
@@ -127,7 +156,7 @@ export async function POST(request: Request) {
               return cookieStore.getAll();
             },
             setAll() {
-              // Tidak perlu mengubah cookie dalam endpoint donasi ini.
+              // Tidak mengubah cookie pada endpoint ini.
             },
           },
         }
@@ -135,39 +164,57 @@ export async function POST(request: Request) {
 
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.warn(
+          "[BDB SUPABASE AUTH]",
+          authError.message
+        );
+      }
 
       userId = user?.id || null;
     }
 
-    // Buat QRIS dinamis melalui Casaku.
+    // =========================================
+    // 5. GENERATE QRIS CASAKU
+    // =========================================
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    const timeout = setTimeout(
+      () => controller.abort(),
+      20000
+    );
 
     let casakuResponse: Response;
 
     try {
-      casakuResponse = await fetch(CASAKU_GENERATE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "x-license-key": licenseKey,
-        },
-        body: JSON.stringify({
-          qr_id: QRIS_ID,
-          amount,
-          packageIds,
-          expiredInMinutes: 15,
-          qrType: "dynamic",
-          paymentMethod: "qris",
-          useQris: true,
-          useUniqueCode: true,
-          prefix: "BDB",
-        }),
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      casakuResponse = await fetch(
+        CASAKU_GENERATE_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "x-license-key": licenseKey,
+          },
+          body: JSON.stringify({
+            qr_id: QRIS_ID,
+            amount,
+            packageIds,
+            expiredInMinutes: 15,
+            qrType: "dynamic",
+            paymentMethod: "qris",
+            useQris: true,
+            useUniqueCode: true,
+            prefix: "BDB",
+          }),
+          cache: "no-store",
+          signal: controller.signal,
+        }
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -179,15 +226,36 @@ export async function POST(request: Request) {
     try {
       casakuJson = JSON.parse(rawResponse);
     } catch {
-      throw new Error("Respons generate QRIS Casaku bukan JSON valid.");
+      throw new Error(
+        "Respons generate QRIS Casaku bukan JSON valid."
+      );
     }
 
     if (!casakuResponse.ok) {
-      console.error("[CASAKU GENERATE]", casakuJson);
+      console.error(
+        "[BDB CASAKU HTTP ERROR]",
+        casakuResponse.status,
+        casakuJson
+      );
 
       throw new Error(
         casakuJson?.message ||
           `Casaku gagal membuat QRIS (HTTP ${casakuResponse.status}).`
+      );
+    }
+
+    if (
+      casakuJson?.success === false ||
+      casakuJson?.status === "error"
+    ) {
+      console.error(
+        "[BDB CASAKU API ERROR]",
+        casakuJson
+      );
+
+      throw new Error(
+        casakuJson?.message ||
+          "Casaku menolak permintaan pembuatan QRIS."
       );
     }
 
@@ -197,26 +265,37 @@ export async function POST(request: Request) {
         ? casakuJson.data
         : casakuJson;
 
-    const transactionId =
-      String(data?.transactionId || "").trim();
+    const transactionId = String(
+      data?.transactionId || ""
+    ).trim();
 
-    const qrString =
-      String(data?.qr_string || "").trim();
+    const qrString = String(
+      data?.qr_string || ""
+    ).trim();
 
     const paymentAmount = Number(
       data?.totalAmount ?? data?.amount ?? 0
     );
 
-    if (!transactionId || !qrString || !Number.isSafeInteger(paymentAmount)) {
-      console.error("[CASAKU INVALID RESPONSE]", casakuJson);
+    if (
+      !transactionId ||
+      !qrString ||
+      !Number.isSafeInteger(paymentAmount)
+    ) {
+      console.error(
+        "[BDB CASAKU INVALID RESPONSE]",
+        casakuJson
+      );
 
       throw new Error(
-        "Casaku tidak mengembalikan transactionId, qr_string, atau totalAmount yang valid."
+        "Data QRIS Casaku tidak lengkap atau tidak valid."
       );
     }
 
     if (paymentAmount < amount) {
-      throw new Error("Nominal pembayaran dari Casaku tidak valid.");
+      throw new Error(
+        "Nominal pembayaran dari Casaku tidak valid."
+      );
     }
 
     const expiresAt =
@@ -224,8 +303,11 @@ export async function POST(request: Request) {
       data?.expiresAt ||
       null;
 
-    // Simpan transaksi utama di Sanity.
-    await sanityClient.create({
+    // =========================================
+    // 6. SIMPAN TRANSAKSI KE SANITY
+    // =========================================
+
+    const transactionDocument = {
       _type: "donationTransaction",
       orderId,
       transactionId,
@@ -235,24 +317,33 @@ export async function POST(request: Request) {
       amount,
       paymentAmount,
       fundraiserPhone,
-      programName: programId
+
+      ...(programId
         ? {
-            _type: "reference",
-            _ref: programId,
+            programName: {
+              _type: "reference",
+              _ref: programId,
+            },
           }
-        : undefined,
+        : {}),
+
       status: "pending",
       paymentProvider: "casaku",
       paymentMethod: "qris",
       paymentVerified: false,
       paymentUrl: "",
       qrString,
-      expiresAt,
+      ...(expiresAt ? { expiresAt } : {}),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
 
-    // Simpan salinan transaksi di Supabase.
+    await sanityClient.create(transactionDocument);
+
+    // =========================================
+    // 7. SIMPAN SALINAN KE SUPABASE
+    // =========================================
+
     if (supabase) {
       const { error } = await supabase
         .from("donations")
@@ -268,9 +359,16 @@ export async function POST(request: Request) {
         });
 
       if (error) {
-        console.warn("[CASAKU] Supabase insert gagal:", error.message);
+        console.error(
+          "[BDB SUPABASE INSERT ERROR]",
+          error.message
+        );
       }
     }
+
+    // =========================================
+    // 8. RESPONSE KE FRONTEND
+    // =========================================
 
     return NextResponse.json({
       success: true,
@@ -279,12 +377,19 @@ export async function POST(request: Request) {
       transactionId,
       amount,
       paymentAmount,
+      totalAmount: paymentAmount,
       qrString,
       expiresAt,
+      expiredAt: expiresAt,
+      expiredInMinutes: 15,
       paymentMethod: "qris",
     });
+
   } catch (error) {
-    console.error("[CASAKU DONATE ERROR]", error);
+    console.error(
+      "[BDB DONATE ERROR]",
+      error
+    );
 
     const message =
       error instanceof Error
