@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@sanity/client";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { randomUUID } from "node:crypto";
 
 // ============================================================================
 // CONFIG
@@ -27,16 +28,34 @@ const SANITY_TOKEN =
   process.env.SANITY_API_WRITE_TOKEN ||
   process.env.SANITY_API_TOKEN;
 
-const serverClient = createClient({
-  projectId:
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "ks29gg6v",
-  dataset: (
-    process.env.NEXT_PUBLIC_SANITY_DATASET || "production"
-  ).trim(),
-  useCdn: false,
-  apiVersion: "2026-08-31",
-  token: SANITY_TOKEN,
-});
+function getSanityClient() {
+  const projectId =
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID?.trim();
+
+  const dataset =
+    process.env.NEXT_PUBLIC_SANITY_DATASET?.trim() ||
+    "production";
+
+  if (!projectId) {
+    throw new Error(
+      "NEXT_PUBLIC_SANITY_PROJECT_ID belum dikonfigurasi."
+    );
+  }
+
+  if (!SANITY_TOKEN) {
+    throw new Error(
+      "SANITY_API_WRITE_TOKEN atau SANITY_API_TOKEN belum dikonfigurasi."
+    );
+  }
+
+  return createClient({
+    projectId,
+    dataset,
+    useCdn: false,
+    apiVersion: "2026-08-31",
+    token: SANITY_TOKEN,
+  });
+}
 
 // ============================================================================
 // TYPES
@@ -136,9 +155,7 @@ function normalizePhone(value: unknown): string {
   return String(value ?? "").replace(/[^0-9]/g, "");
 }
 
-function getFirstText(
-  ...values: unknown[]
-): string {
+function getFirstText(...values: unknown[]): string {
   for (const value of values) {
     const result = cleanText(value, 10000);
 
@@ -147,6 +164,24 @@ function getFirstText(
 
   return "";
 }
+
+// ============================================================================
+// GENERATE INTERNAL ORDER ID
+// ============================================================================
+
+function generateOrderId(): string {
+  const timestamp = Date.now();
+  const uniqueId = randomUUID()
+    .replace(/-/g, "")
+    .slice(0, 12)
+    .toUpperCase();
+
+  return `${CASAKU_PREFIX}-${timestamp}-${uniqueId}`;
+}
+
+// ============================================================================
+// ENVIRONMENT VALIDATION
+// ============================================================================
 
 function getRequiredEnvironment() {
   const licenseKey =
@@ -170,6 +205,12 @@ function getRequiredEnvironment() {
   if (!SANITY_TOKEN) {
     throw new Error(
       "SANITY_API_WRITE_TOKEN atau SANITY_API_TOKEN belum dikonfigurasi."
+    );
+  }
+
+  if (!process.env.NEXT_PUBLIC_SANITY_PROJECT_ID?.trim()) {
+    throw new Error(
+      "NEXT_PUBLIC_SANITY_PROJECT_ID belum dikonfigurasi."
     );
   }
 
@@ -218,8 +259,7 @@ async function createCasakuTransaction({
 
           packageIds: ["id.dana"],
 
-          expiredInMinutes:
-            CASAKU_EXPIRED_MINUTES,
+          expiredInMinutes: CASAKU_EXPIRED_MINUTES,
 
           qrType: "dynamic",
           paymentMethod: "qris",
@@ -251,11 +291,10 @@ async function createCasakuTransaction({
     if (!response.ok || !json) {
       throw new Error(
         json?.message ||
-          `Casaku gagal. HTTP ${response.status}: ${rawText.slice(0, 500)}`
+        `Casaku gagal. HTTP ${response.status}: ${rawText.slice(0, 500)}`
       );
     }
 
-    // Validasi respons Casaku.
     const responseStatus = String(
       json.status ?? ""
     )
@@ -276,7 +315,7 @@ async function createCasakuTransaction({
     ) {
       throw new Error(
         json.message ||
-          `Casaku menolak transaksi: ${rawText.slice(0, 500)}`
+        `Casaku menolak transaksi: ${rawText.slice(0, 500)}`
       );
     }
 
@@ -286,9 +325,8 @@ async function createCasakuTransaction({
         ? json.data
         : json;
 
-    // ========================================================
-    // AMBIL ID ASLI DARI CASAKU
-    // ========================================================
+    // ID ASLI DARI CASAKU.
+    // ID ini BUKAN orderId internal website.
 
     const transactionId = getFirstText(
       data.transactionId,
@@ -306,10 +344,6 @@ async function createCasakuTransaction({
       json.reference
     );
 
-    // ========================================================
-    // AMBIL QRIS
-    // ========================================================
-
     const qrString = getFirstText(
       data.qr_string,
       data.qrString,
@@ -323,10 +357,6 @@ async function createCasakuTransaction({
       json.qrCode,
       json.qr_code
     );
-
-    // ========================================================
-    // AMBIL NOMINAL
-    // ========================================================
 
     const rawTotalAmount =
       data.totalAmount ??
@@ -437,13 +467,17 @@ async function createCasakuTransaction({
 
 export async function POST(request: Request) {
   try {
-    // 1. Validasi konfigurasi.
+    // 1. VALIDASI KONFIGURASI
+
     const {
       licenseKey,
       qrisId,
     } = getRequiredEnvironment();
 
-    // 2. Baca payload.
+    const sanityClient = getSanityClient();
+
+    // 2. BACA PAYLOAD
+
     let body: DonateRequestBody;
 
     try {
@@ -469,7 +503,8 @@ export async function POST(request: Request) {
       slug,
     } = body;
 
-    // 3. Validasi nominal.
+    // 3. VALIDASI NOMINAL
+
     const cleanAmount = cleanAmountValue(amount);
 
     if (
@@ -496,7 +531,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Normalisasi data donatur.
+    // 4. NORMALISASI DATA DONATUR
+
     const normalizedDonorName =
       cleanText(donorName, 150) ||
       "Hamba Allah";
@@ -504,8 +540,6 @@ export async function POST(request: Request) {
     const normalizedPhone =
       normalizePhone(phone);
 
-    // Frontend mengirim donorEmail.
-    // Tetap mendukung email untuk kompatibilitas.
     const normalizedEmail = cleanText(
       body.donorEmail || body.email,
       200
@@ -528,7 +562,8 @@ export async function POST(request: Request) {
     const normalizedSlug =
       cleanText(slug, 300);
 
-    // 5. Validasi WhatsApp.
+    // 5. VALIDASI WHATSAPP
+
     const isValidPhoneFormat =
       normalizedPhone.length >= 9 &&
       normalizedPhone.length <= 15 &&
@@ -549,7 +584,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Validasi program.
+    // 6. VALIDASI PROGRAM
+
     if (!normalizedProgramId) {
       return NextResponse.json(
         {
@@ -561,9 +597,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ========================================================
     // 7. AMBIL USER SUPABASE
-    // ========================================================
 
     let userId: string | null = null;
 
@@ -605,8 +639,7 @@ export async function POST(request: Request) {
                     }
                   );
                 } catch {
-                  // Cookie tidak harus diubah
-                  // untuk proses pembuatan donasi.
+                  // Tidak mengganggu pembuatan donasi.
                 }
               },
             },
@@ -629,44 +662,45 @@ export async function POST(request: Request) {
       );
     }
 
-    // ========================================================
     // 8. BUAT TRANSAKSI DI CASAKU
-    // ========================================================
 
-    const casaku =
-      await createCasakuTransaction({
-        licenseKey,
-        qrisId,
-        amount: cleanAmount,
-      });
+    const casaku = await createCasakuTransaction({
+      licenseKey,
+      qrisId,
+      amount: cleanAmount,
+    });
 
     // ========================================================
-    // 9. GUNAKAN SATU ID TRANSAKSI
+    // 9. PISAHKAN ID INTERNAL DAN ID CASAKU
     // ========================================================
 
-    // ID asli dari Casaku menjadi identitas utama.
-    // Tidak lagi membuat ID TRX secara terpisah.
+    // orderId:
+    // ID internal yang dibuat oleh website.
 
-    const orderId = casaku.transactionId;
+    const orderId = generateOrderId();
+
+    // transactionId:
+    // ID asli yang diberikan oleh Casaku.
 
     const transactionId = casaku.transactionId;
 
     console.log(
-      "[DONATE] ID TRANSAKSI UTAMA:",
-      orderId
+      "[DONATE] IDENTITAS TRANSAKSI:",
+      {
+        orderId,
+        transactionId,
+      }
     );
 
-    // ========================================================
     // 10. SIMPAN TRANSAKSI KE SANITY
-    // ========================================================
 
     const now = new Date().toISOString();
 
     const sanityTransaction =
-      await serverClient.create({
+      await sanityClient.create({
         _type: "donationTransaction",
 
-        // KEDUA FIELD MENGGUNAKAN ID YANG SAMA.
+        // KEDUA ID DISIMPAN TERPISAH.
         orderId,
         transactionId,
 
@@ -709,9 +743,7 @@ export async function POST(request: Request) {
       }
     );
 
-    // ========================================================
     // 11. SINKRONKAN KE SUPABASE
-    // ========================================================
 
     if (supabase) {
       try {
@@ -738,7 +770,7 @@ export async function POST(request: Request) {
 
               payment_url: "",
 
-              // ID YANG SAMA DENGAN SANITY.
+              // invoice_id MENGGUNAKAN ORDER ID INTERNAL.
               invoice_id: orderId,
             },
           ]);
@@ -763,9 +795,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ========================================================
     // 12. KIRIM RESPONS KE FRONTEND
-    // ========================================================
 
     return NextResponse.json(
       {
@@ -773,37 +803,33 @@ export async function POST(request: Request) {
 
         provider: "casaku",
 
-        // SATU ID UNTUK SEMUA PROSES.
+        // ID INTERNAL WEBSITE
         orderId,
+
+        // ID ASLI DARI CASAKU
         transactionId,
 
         amount: cleanAmount,
 
-        totalAmount:
-          casaku.totalAmount,
+        totalAmount: casaku.totalAmount,
 
-        paymentAmount:
-          casaku.totalAmount,
+        paymentAmount: casaku.totalAmount,
 
-        qrString:
-          casaku.qrString,
+        qrString: casaku.qrString,
 
-        status:
-          casaku.status || "pending",
+        status: casaku.status || "pending",
 
-        expiredAt:
-          casaku.expiredAt,
+        expiredAt: casaku.expiredAt,
 
-        expiresAt:
-          casaku.expiredAt,
+        expiresAt: casaku.expiredAt,
 
-        expiredInMinutes:
-          CASAKU_EXPIRED_MINUTES,
+        expiredInMinutes: CASAKU_EXPIRED_MINUTES,
       },
       {
         status: 200,
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate",
         },
       }
     );

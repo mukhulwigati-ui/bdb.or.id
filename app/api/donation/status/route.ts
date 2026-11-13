@@ -15,12 +15,14 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type CasakuStatus = "pending" | "paid" | "expired" | "cancel";
+type CasakuStatus =
+  | "pending"
+  | "paid"
+  | "expired"
+  | "cancel";
 
 function getSanityClient() {
-  const projectId =
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "ks29gg6v";
-
+  const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
   const dataset = (
     process.env.NEXT_PUBLIC_SANITY_DATASET || "production"
   ).trim();
@@ -28,6 +30,12 @@ function getSanityClient() {
   const token =
     process.env.SANITY_API_WRITE_TOKEN ||
     process.env.SANITY_API_TOKEN;
+
+  if (!projectId) {
+    throw new Error(
+      "NEXT_PUBLIC_SANITY_PROJECT_ID belum dikonfigurasi."
+    );
+  }
 
   if (!token) {
     throw new Error(
@@ -44,8 +52,13 @@ function getSanityClient() {
   });
 }
 
-function cleanText(value: unknown, maxLength = 500): string {
-  return String(value ?? "").trim().slice(0, maxLength);
+function cleanText(
+  value: unknown,
+  maxLength = 500
+): string {
+  return String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
 }
 
 function normalizeStatus(value: unknown): string {
@@ -55,22 +68,71 @@ function normalizeStatus(value: unknown): string {
 function isPaidStatus(status: unknown): boolean {
   return [
     "success",
+    "successful",
     "paid",
     "settlement",
     "settled",
     "completed",
+    "complete",
   ].includes(normalizeStatus(status));
 }
 
-function getExpectedAmount(transaction: any): number {
+function normalizeCasakuStatus(
+  value: unknown
+): CasakuStatus {
+  const status = normalizeStatus(value);
+
+  if (
+    [
+      "success",
+      "successful",
+      "paid",
+      "settlement",
+      "settled",
+      "completed",
+      "complete",
+    ].includes(status)
+  ) {
+    return "paid";
+  }
+
+  if (
+    [
+      "expired",
+      "expire",
+      "timeout",
+    ].includes(status)
+  ) {
+    return "expired";
+  }
+
+  if (
+    [
+      "cancel",
+      "cancelled",
+      "canceled",
+    ].includes(status)
+  ) {
+    return "cancel";
+  }
+
+  return "pending";
+}
+
+function getExpectedAmount(
+  transaction: any
+): number {
   return Number(
     transaction?.paymentAmount ??
-    transaction?.amount ??
-    0
+      transaction?.amount ??
+      0
   );
 }
 
-function jsonError(message: string, status = 400) {
+function jsonError(
+  message: string,
+  status = 400
+) {
   return NextResponse.json(
     {
       success: false,
@@ -81,24 +143,28 @@ function jsonError(message: string, status = 400) {
 }
 
 /**
- * Mengambil transaksi terbaru dari Sanity.
- * Jangan menggunakan data transaksi lama untuk mengambil keputusan
- * karena status bisa berubah ketika proses pengecekan sedang berjalan.
+ * Membaca ulang transaksi menggunakan ID dokumen Sanity.
+ * Parameter yang diberikan ke fungsi ini harus _id Sanity,
+ * bukan orderId atau transactionId Casaku.
  */
-async function getFreshTransaction(transactionId: string) {
-  return getDonationById(transactionId);
+async function getFreshTransaction(
+  sanityDocumentId: string
+) {
+  return getDonationById(sanityDocumentId);
 }
 
 /**
- * Mengirim respons transaksi yang sudah lunas.
- * Kredit program/fundraiser tetap dipastikan melalui helper.
+ * Respons transaksi yang sudah dibayar.
+ * Kredit program/fundraiser dipastikan melalui helper
+ * yang menangani idempotensi.
  */
 async function respondPaid(transaction: any) {
   let freshTransaction = transaction;
 
   if (transaction?._id) {
     freshTransaction =
-      (await getFreshTransaction(transaction._id)) || transaction;
+      (await getFreshTransaction(transaction._id)) ||
+      transaction;
 
     await ensureDonationCredits(freshTransaction);
 
@@ -121,46 +187,46 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const orderId = cleanText(searchParams.get("orderId"), 250);
+    const orderId = cleanText(
+      searchParams.get("orderId"),
+      250
+    );
+
     const transactionId = cleanText(
       searchParams.get("transactionId"),
       250
     );
 
-    // orderId menjadi prioritas jika kedua parameter dikirim.
-    const identifier = orderId || transactionId;
+    // =====================================================
+    // 1. VALIDASI IDENTIFIER
+    // =====================================================
 
-    if (!identifier) {
+    if (!orderId && !transactionId) {
       return jsonError(
         "ID transaksi (orderId atau transactionId) wajib diisi.",
         400
       );
     }
 
-    // =========================================================
-    // 1. CARI TRANSAKSI DI SANITY
-    // =========================================================
+    // =====================================================
+    // 2. CARI TRANSAKSI DI SANITY
+    // =====================================================
 
     let transaction: any = null;
 
+    /*
+     * orderId hanya digunakan untuk mencari orderId.
+     * transactionId hanya digunakan untuk mencari transactionId.
+     *
+     * Tidak ada fallback silang karena kedua ID tersebut
+     * memiliki fungsi yang berbeda.
+     */
+
     if (orderId) {
       transaction = await getDonationByOrderId(orderId);
-    }
-
-    if (!transaction && transactionId) {
-      transaction = await getDonationByTransactionId(transactionId);
-    }
-
-    if (!transaction) {
-      transaction = await getDonationByOrderId(identifier);
-    }
-
-    if (!transaction) {
-      transaction = await getDonationByTransactionId(identifier);
-    }
-
-    if (!transaction) {
-      transaction = await getDonationById(identifier);
+    } else if (transactionId) {
+      transaction =
+        await getDonationByTransactionId(transactionId);
     }
 
     if (!transaction) {
@@ -177,83 +243,91 @@ export async function GET(request: Request) {
       );
     }
 
-    // =========================================================
-    // 2. PERIKSA STATUS TERBARU DI DATABASE
-    // =========================================================
+    // =====================================================
+    // 3. AMBIL DATA TRANSAKSI TERBARU
+    // =====================================================
 
     let currentTransaction =
-      (await getFreshTransaction(transaction._id)) || transaction;
+      (await getFreshTransaction(transaction._id)) ||
+      transaction;
 
     let currentStatus = normalizeStatus(
       currentTransaction.status
     );
 
-    // Jika sudah lunas, jangan periksa ulang ke Casaku.
-    // Pastikan kredit program/fundraiser sudah diproses.
+    // Jika sudah lunas, pastikan kredit sudah diproses.
     if (isPaidStatus(currentStatus)) {
       return respondPaid(currentTransaction);
     }
 
-    // =========================================================
-    // 3. AMBIL ID TRANSAKSI CASAKU
-    // =========================================================
+    // =====================================================
+    // 4. AMBIL ID TRANSAKSI CASAKU
+    // =====================================================
 
     /*
-     * PENTING:
-     * transactionId adalah ID dari gateway Casaku.
-     * orderId adalah ID internal aplikasi.
+     * WAJIB menggunakan transactionId dari Casaku.
      *
-     * Jangan menimpa atau menyamakan keduanya.
-     *
-     * Fallback ke orderId hanya untuk kompatibilitas
-     * dengan transaksi lama yang belum menyimpan transactionId.
+     * Jangan menggunakan orderId sebagai fallback.
+     * orderId merupakan ID internal aplikasi, bukan ID gateway.
      */
-    const casakuTrxId = cleanText(
-      currentTransaction.transactionId ||
-      currentTransaction.orderId,
+
+    const casakuTransactionId = cleanText(
+      currentTransaction.transactionId,
       250
     );
 
-    if (!casakuTrxId) {
+    if (!casakuTransactionId) {
+      console.error(
+        "[DONATION STATUS] transactionId Casaku tidak ditemukan",
+        {
+          sanityId: currentTransaction._id,
+          orderId: currentTransaction.orderId,
+        }
+      );
+
       return NextResponse.json({
         success: true,
         status: "pending",
         transaction: currentTransaction,
         message:
-          "ID transaksi dari gateway Casaku belum tersedia.",
+          "ID transaksi Casaku belum tersedia. Transaksi menunggu verifikasi.",
       });
     }
 
-    // =========================================================
-    // 4. CEK STATUS LANGSUNG KE CASAKU
-    // =========================================================
+    // =====================================================
+    // 5. CEK STATUS LANGSUNG KE CASAKU
+    // =====================================================
 
-    const casakuResult = await checkCasakuTransaction(
-      casakuTrxId
+    const casakuResult =
+      await checkCasakuTransaction(
+        casakuTransactionId
+      );
+
+    const casakuStatus = normalizeCasakuStatus(
+      casakuResult.status
     );
 
     console.log("[DONATION STATUS CHECK]", {
+      sanityId: currentTransaction._id,
       orderId: currentTransaction.orderId,
-      casakuTransactionId: casakuTrxId,
-      casakuStatus: casakuResult.status,
+      transactionId: casakuTransactionId,
+      localStatus: currentTransaction.status,
+      casakuStatus,
       casakuAmount: casakuResult.amount,
       localAmount: getExpectedAmount(currentTransaction),
     });
 
-    const casakuStatus = normalizeStatus(
-      casakuResult.status
-    ) as CasakuStatus;
-
-    // =========================================================
-    // 5. JIKA PEMBAYARAN SUDAH BERHASIL
-    // =========================================================
+    // =====================================================
+    // 6. PEMBAYARAN BERHASIL
+    // =====================================================
 
     if (casakuStatus === "paid") {
       /*
-       * Ambil ulang data sebelum mengubah status.
-       * Ini mencegah data lama menimpa transaksi yang
-       * sudah diproses oleh webhook atau request lain.
+       * Baca ulang sebelum mengubah status.
+       * Bisa saja webhook sudah lebih dahulu memproses
+       * transaksi menjadi sukses.
        */
+
       currentTransaction =
         (await getFreshTransaction(currentTransaction._id)) ||
         currentTransaction;
@@ -266,6 +340,10 @@ export async function GET(request: Request) {
         return respondPaid(currentTransaction);
       }
 
+      // -----------------------------------------------
+      // Verifikasi nominal pembayaran
+      // -----------------------------------------------
+
       const expectedAmount = getExpectedAmount(
         currentTransaction
       );
@@ -274,34 +352,35 @@ export async function GET(request: Request) {
         casakuResult.amount || 0
       );
 
-      /*
-       * Verifikasi nominal:
-       * Jika Casaku memberikan nominal pembayaran,
-       * nominal tersebut harus sama dengan nominal tagihan.
-       *
-       * Jangan memberikan kredit jika nominal tidak cocok.
-       */
       if (
         expectedAmount > 0 &&
         casakuAmount > 0 &&
         casakuAmount !== expectedAmount
       ) {
-        console.error("[DONATION AMOUNT MISMATCH]", {
-          orderId: currentTransaction.orderId,
-          transactionId: casakuTrxId,
-          expectedAmount,
-          casakuAmount,
-        });
+        console.error(
+          "[DONATION AMOUNT MISMATCH]",
+          {
+            sanityId: currentTransaction._id,
+            orderId: currentTransaction.orderId,
+            transactionId: casakuTransactionId,
+            expectedAmount,
+            casakuAmount,
+          }
+        );
 
         return NextResponse.json({
           success: true,
           status: "pending",
           transaction: currentTransaction,
           message:
-            "Casaku melaporkan pembayaran, tetapi nominal yang diterima tidak sesuai dengan tagihan. Transaksi menunggu verifikasi.",
+            "Casaku melaporkan pembayaran berhasil, tetapi nominal yang diterima tidak sesuai dengan tagihan. Transaksi menunggu verifikasi.",
           verificationRequired: true,
         });
       }
+
+      // -----------------------------------------------
+      // Update status Sanity
+      // -----------------------------------------------
 
       const sanity = getSanityClient();
       const now = new Date().toISOString();
@@ -316,7 +395,6 @@ export async function GET(request: Request) {
           ? casakuAmount
           : expectedAmount;
 
-      // Update transaksi menjadi sukses.
       await sanity
         .patch(currentTransaction._id)
         .set({
@@ -330,23 +408,25 @@ export async function GET(request: Request) {
         })
         .commit();
 
-      // Ambil data terbaru setelah perubahan status.
+      // -----------------------------------------------
+      // Baca ulang transaksi setelah update
+      // -----------------------------------------------
+
       let freshTransaction =
         await getFreshTransaction(currentTransaction._id);
 
       if (!freshTransaction) {
         throw new Error(
-          "Pembayaran berhasil, tetapi data transaksi gagal dibaca kembali dari Sanity."
+          "Pembayaran berhasil, tetapi transaksi gagal dibaca kembali dari Sanity."
         );
       }
 
-      /*
-       * Proses kredit program dan fundraiser.
-       * Helper ini harus menangani duplikasi kredit secara aman.
-       */
+      // -----------------------------------------------
+      // Pastikan kredit program/fundraiser diproses
+      // -----------------------------------------------
+
       await ensureDonationCredits(freshTransaction);
 
-      // Ambil kembali agar respons berisi data paling baru.
       freshTransaction =
         (await getFreshTransaction(currentTransaction._id)) ||
         freshTransaction;
@@ -361,19 +441,20 @@ export async function GET(request: Request) {
       });
     }
 
-    // =========================================================
-    // 6. JIKA PEMBAYARAN KEDALUWARSA ATAU DIBATALKAN
-    // =========================================================
+    // =====================================================
+    // 7. PEMBAYARAN EXPIRED ATAU CANCEL
+    // =====================================================
 
     if (
       casakuStatus === "expired" ||
       casakuStatus === "cancel"
     ) {
       /*
-       * Periksa ulang sebelum menandai gagal.
-       * Pembayaran yang sudah sukses tidak boleh berubah
-       * menjadi failed akibat hasil pengecekan yang terlambat.
+       * Periksa kembali status lokal.
+       * Jangan sampai hasil pengecekan yang terlambat
+       * mengubah transaksi sukses menjadi gagal.
        */
+
       currentTransaction =
         (await getFreshTransaction(currentTransaction._id)) ||
         currentTransaction;
@@ -420,15 +501,10 @@ export async function GET(request: Request) {
       });
     }
 
-    // =========================================================
-    // 7. STATUS MASIH MENUNGGU
-    // =========================================================
+    // =====================================================
+    // 8. STATUS MASIH MENUNGGU
+    // =====================================================
 
-    /*
-     * Jangan mengembalikan status lokal selain pending
-     * sebagai status gateway. Status lokal bisa saja
-     * masih memakai istilah lama.
-     */
     currentTransaction =
       (await getFreshTransaction(currentTransaction._id)) ||
       currentTransaction;
@@ -445,10 +521,14 @@ export async function GET(request: Request) {
       success: true,
       status: "pending",
       transaction: currentTransaction,
-      message: "Pembayaran belum dikonfirmasi oleh Casaku.",
+      message:
+        "Pembayaran belum dikonfirmasi oleh Casaku.",
     });
   } catch (error: unknown) {
-    console.error("[DONATION STATUS API ERROR]", error);
+    console.error(
+      "[DONATION STATUS API ERROR]",
+      error
+    );
 
     const message =
       error instanceof Error
