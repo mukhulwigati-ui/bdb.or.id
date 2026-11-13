@@ -46,7 +46,7 @@ function isCasakuTransaction({
 
   return (
     provider === "casaku" ||
-    trxId.startsWith("BDB-") ||
+    trxId.startsWith("ISLAMI-") ||
     trxId.startsWith("CSK-")
   );
 }
