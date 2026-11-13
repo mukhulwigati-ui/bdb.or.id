@@ -63,7 +63,7 @@ interface CasakuGenerateData {
   qris?: string;
   qrCode?: string;
 
-  status?: string;
+  status?: number | string | boolean;
   createdAt?: string;
   expiredAt?: string;
   expiresAt?: string;
@@ -72,7 +72,7 @@ interface CasakuGenerateData {
 }
 
 interface CasakuGenerateResponse {
-  status?: number | string;
+  status?: number | string | boolean;
   success?: boolean;
   message?: string;
   data?: CasakuGenerateData;
@@ -176,8 +176,16 @@ async function createCasakuTransaction({
       );
     }
 
-    // Tangkap error dari Casaku jika success bernilai false atau status bukan indikator sukses
-    if (json.success === false || (json.status && json.status !== 200 && json.status !== 201 && json.status !== true && json.status !== "success")) {
+    // Validasi error jika success bernilai false atau status bukan indikator sukses
+    if (
+      json.success === false ||
+      (json.status !== undefined &&
+        json.status !== 200 &&
+        json.status !== 201 &&
+        json.status !== true &&
+        json.status !== "success" &&
+        json.status !== "200")
+    ) {
       throw new Error(json.message || `Casaku menolak permintaan: ${rawText}`);
     }
 
@@ -407,7 +415,7 @@ export async function POST(request: Request) {
       campaignSlug: normalizedSlug,
     });
 
-    createdSanId = sanityTransaction._id;
+    createdSanityId = sanityTransaction._id;
 
     // 9. SINKRONKAN KE SUPABASE
     if (supabase) {
