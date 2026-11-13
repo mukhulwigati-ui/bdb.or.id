@@ -1,12 +1,14 @@
-// app/api/payments/casaku/webhook/route.ts
 
 import { NextResponse } from "next/server";
-import crypto from "crypto";
-
-import { createClient } from "@sanity/client";
 import {
-  createClient as createSupabaseClient,
-} from "@supabase/supabase-js";
+  createHmac,
+  timingSafeEqual,
+} from "node:crypto";
+
+import {
+  getDonationByTransactionId,
+  reconcileDonation,
+} from "@/lib/payments/casaku-settlement";
 
 // ============================================================================
 // NEXT CONFIG
@@ -16,28 +18,6 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 // ============================================================================
-// SANITY
-// ============================================================================
-
-const sanityClient = createClient({
-  projectId:
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
-    "ks29gg6v",
-
-  dataset:
-    process.env.NEXT_PUBLIC_SANITY_DATASET ||
-    "production",
-
-  apiVersion: "2026-08-31",
-
-  useCdn: false,
-
-  token:
-    process.env.SANITY_API_TOKEN ||
-    process.env.SANITY_API_WRITE_TOKEN,
-});
-
-// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -45,48 +25,18 @@ interface CasakuWebhookPayload {
   transactionId?: string;
   id?: string;
   trx_id?: string;
+
+  // orderId bukan pengganti transactionId.
   orderId?: string;
-  amount?: number;
-  totalAmount?: number;
+
+  amount?: number | string;
+  totalAmount?: number | string;
+
   packageName?: string;
   appName?: string;
+
   status?: string;
   paidAt?: string;
-}
-
-interface SanityDonationTransaction {
-  _id: string;
-  _rev?: string;
-  orderId?: string;
-  transactionId?: string;
-  donorName?: string;
-  donorPhone?: string;
-  donorEmail?: string;
-  amount?: number;
-  paymentAmount?: number;
-  status?: string;
-  paidAt?: string;
-  paymentProvider?: string;
-  paymentMethod?: string;
-  fundraiserPhone?: string;
-  programId?: string;
-  programTitle?: string;
-  programCreditedAt?: string;
-  fundraiserCreditedAt?: string;
-}
-
-interface FundraiserDocument {
-  _id: string;
-  _rev?: string;
-  name?: string;
-  phone?: string;
-  status?: string;
-  feePercentage?: number;
-  totalDanaDihimpun?: number;
-  totalTransaksiSukses?: number;
-  totalFee?: number;
-  sisaSaldoFee?: number;
-  feePaid?: number;
 }
 
 // ============================================================================
@@ -102,33 +52,31 @@ function cleanText(
     .slice(0, maxLength);
 }
 
-function normalizePhone(
-  value: unknown
-): string {
-  let phone = cleanText(
-    value,
-    30
-  ).replace(/\D/g, "");
+function normalizeStatus(value: unknown): string {
+  return cleanText(value, 50).toLowerCase();
+}
 
-  if (!phone) {
-    return "";
-  }
-
-  if (phone.startsWith("62")) {
-    phone =
-      "0" + phone.slice(2);
-  }
-
-  return phone;
+function isPaidStatus(value: unknown): boolean {
+  return [
+    "paid",
+    "success",
+    "successful",
+    "settlement",
+    "settled",
+    "completed",
+    "complete",
+  ].includes(normalizeStatus(value));
 }
 
 function isValidHexSignature(
   value: string
 ): boolean {
-  return /^[a-f0-9]{64}$/i.test(
-    value
-  );
+  return /^[a-f0-9]{64}$/i.test(value);
 }
+
+// ============================================================================
+// VERIFY CASAKU SIGNATURE
+// ============================================================================
 
 function verifySignature({
   rawBody,
@@ -139,37 +87,31 @@ function verifySignature({
   receivedSignature: string;
   secret: string;
 }): boolean {
-  if (
-    !isValidHexSignature(
-      receivedSignature
-    )
-  ) {
+  const signature = cleanText(
+    receivedSignature,
+    200
+  ).replace(/^sha256=/i, "");
+
+  if (!isValidHexSignature(signature)) {
     return false;
   }
 
-  const expectedSignature =
-    crypto
-      .createHmac(
-        "sha256",
-        secret
-      )
-      .update(
-        rawBody,
-        "utf8"
-      )
-      .digest("hex");
+  const expectedSignature = createHmac(
+    "sha256",
+    secret
+  )
+    .update(rawBody, "utf8")
+    .digest("hex");
 
-  const receivedBuffer =
-    Buffer.from(
-      receivedSignature,
-      "hex"
-    );
+  const receivedBuffer = Buffer.from(
+    signature,
+    "hex"
+  );
 
-  const expectedBuffer =
-    Buffer.from(
-      expectedSignature,
-      "hex"
-    );
+  const expectedBuffer = Buffer.from(
+    expectedSignature,
+    "hex"
+  );
 
   if (
     receivedBuffer.length !==
@@ -178,901 +120,531 @@ function verifySignature({
     return false;
   }
 
-  return crypto.timingSafeEqual(
+  return timingSafeEqual(
     receivedBuffer,
     expectedBuffer
   );
 }
 
-function formatDonationDate(
-  isoDate: string
-): string {
-  try {
-    return new Intl.DateTimeFormat(
-      "id-ID",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        timeZone:
-          "Asia/Jakarta",
-      }
-    ).format(
-      new Date(isoDate)
-    );
-  } catch {
-    return isoDate;
-  }
-}
-
 // ============================================================================
-// SUPABASE MIRROR
+// RESPONSE
 // ============================================================================
 
-async function syncSupabaseSuccess(
-  orderId?: string
+function webhookError(
+  message: string,
+  status = 400
 ) {
-  if (!orderId) {
-    return;
-  }
-
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (
-    !supabaseUrl ||
-    !serviceRoleKey
-  ) {
-    return;
-  }
-
-  try {
-    const supabaseAdmin =
-      createSupabaseClient(
-        supabaseUrl,
-        serviceRoleKey,
-        {
-          auth: {
-            autoRefreshToken:
-              false,
-            persistSession:
-              false,
-          },
-        }
-      );
-
-    const {
-      error,
-    } =
-      await supabaseAdmin
-        .from("donations")
-        .update({
-          status: "success",
-        })
-        .eq(
-          "invoice_id",
-          orderId
-        );
-
-    if (error) {
-      console.warn(
-        "⚠️ Gagal sinkron status Supabase:",
-        error.message
-      );
-    }
-  } catch (error) {
-    console.warn(
-      "⚠️ Sinkronisasi Supabase dilewati:",
-      error
-    );
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      message,
+    },
+    { status }
+  );
 }
 
 // ============================================================================
-// CREDIT PROGRAM
+// POST WEBHOOK
 // ============================================================================
 
-async function creditProgram({
-  transaction,
-  donationAmount,
-  paidAt,
-}: {
-  transaction: SanityDonationTransaction;
-  donationAmount: number;
-  paidAt: string;
-}) {
-  if (
-    transaction.programCreditedAt
-  ) {
-    return {
-      credited: false,
-      reason:
-        "already_credited",
-    };
-  }
-
-  if (
-    !transaction.programId
-  ) {
-    console.warn(
-      "⚠️ Transaksi tidak memiliki reference program:",
-      transaction.orderId
-    );
-
-    return {
-      credited: false,
-      reason:
-        "no_program",
-    };
-  }
-
-  const donorName =
-    cleanText(
-      transaction.donorName,
-      150
-    ) ||
-    "Hamba Allah";
-
-  const donor = {
-    _key:
-      crypto.randomUUID(),
-
-    _type:
-      "verifiedDonor",
-
-    name:
-      donorName,
-
-    amount:
-      donationAmount,
-
-    date:
-      formatDonationDate(
-        paidAt
-      ),
-
-    transactionId:
-      transaction.transactionId,
-
-    orderId:
-      transaction.orderId,
-  };
-
+export async function POST(request: Request) {
   try {
-    let tx = sanityClient.transaction();
+    // =====================================================
+    // 1. VALIDASI KONFIGURASI
+    // =====================================================
 
-    // Patch Program
-    tx = tx.patch(transaction.programId, (patch) =>
-      patch
-        .setIfMissing({
-          collectedAmount: 0,
-          collectedRaw: 0,
-          donors: [],
-        })
-        .inc({
-          collectedAmount: donationAmount,
-          collectedRaw: donationAmount,
-        })
-        .append("donors", [donor])
+    const webhookSecret = cleanText(
+      process.env.CASAKU_WEBHOOK_SECRET,
+      500
     );
-
-    // Patch Transaction
-    tx = tx.patch(transaction._id, (patch) => {
-      let next = patch.set({
-        programCreditedAt: new Date().toISOString(),
-      });
-      if (transaction._rev) {
-        next = next.ifRevisionId(transaction._rev);
-      }
-      return next;
-    });
-
-    await tx.commit();
-
-    console.log(
-      "✅ Program berhasil dikredit:",
-      {
-        programId:
-          transaction.programId,
-
-        orderId:
-          transaction.orderId,
-
-        donationAmount,
-      }
-    );
-
-    return {
-      credited: true,
-      reason: "credited",
-    };
-  } catch (error) {
-    const fresh =
-      await sanityClient.fetch<{
-        programCreditedAt?: string;
-      } | null>(
-        `*[
-          _type == "donationTransaction" &&
-          _id == $id
-        ][0]{
-          programCreditedAt
-        }`,
-        {
-          id:
-            transaction._id,
-        }
-      );
-
-    if (
-      fresh?.programCreditedAt
-    ) {
-      return {
-        credited: false,
-        reason:
-          "already_credited",
-      };
-    }
-
-    throw error;
-  }
-}
-
-// ============================================================================
-// CREDIT FUNDRAISER
-// ============================================================================
-
-async function creditFundraiser({
-  transaction,
-  donationAmount,
-}: {
-  transaction: SanityDonationTransaction;
-  donationAmount: number;
-}) {
-  if (
-    transaction.fundraiserCreditedAt
-  ) {
-    return {
-      credited: false,
-      reason:
-        "already_credited",
-    };
-  }
-
-  const fundraiserPhone =
-    normalizePhone(
-      transaction.fundraiserPhone
-    );
-
-  if (!fundraiserPhone) {
-    return {
-      credited: false,
-      reason:
-        "no_fundraiser",
-    };
-  }
-
-  const phone0 =
-    fundraiserPhone;
-
-  const phone62 =
-    fundraiserPhone.startsWith(
-      "0"
-    )
-      ? `62${fundraiserPhone.slice(
-          1
-        )}`
-      : fundraiserPhone;
-
-  const phonePlus62 =
-    `+${phone62}`;
-
-  const fundraiser =
-    await sanityClient.fetch<FundraiserDocument | null>(
-      `*[
-        _type == "fundraiser" &&
-        (
-          phone == $phone0 ||
-          phone == $phone62 ||
-          phone == $phonePlus62
-        )
-      ][0]{
-        _id,
-        _rev,
-        name,
-        phone,
-        status,
-        feePercentage,
-        totalDanaDihimpun,
-        totalTransaksiSukses,
-        totalFee,
-        sisaSaldoFee,
-        feePaid
-      }`,
-      {
-        phone0,
-        phone62,
-        phonePlus62,
-      }
-    );
-
-  if (!fundraiser) {
-    return {
-      credited: false,
-      reason:
-        "fundraiser_not_found",
-    };
-  }
-
-  if (
-    fundraiser.status &&
-    fundraiser.status !==
-      "active"
-  ) {
-    return {
-      credited: false,
-      reason:
-        "fundraiser_inactive",
-    };
-  }
-
-  const feePercentage =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        Number(
-          fundraiser.feePercentage ||
-            0
-        )
-      )
-    );
-
-  const feeAmount =
-    Math.round(
-      donationAmount *
-        (feePercentage /
-          100)
-    );
-
-  const freshTransaction =
-    await sanityClient.fetch<{
-      _rev?: string;
-      fundraiserCreditedAt?: string;
-    } | null>(
-      `*[
-        _type == "donationTransaction" &&
-        _id == $id
-      ][0]{
-        _rev,
-        fundraiserCreditedAt
-      }`,
-      {
-        id:
-          transaction._id,
-      }
-    );
-
-  if (
-    freshTransaction
-      ?.fundraiserCreditedAt
-  ) {
-    return {
-      credited: false,
-      reason:
-        "already_credited",
-    };
-  }
-
-  try {
-    let tx = sanityClient.transaction();
-
-    tx = tx.patch(fundraiser._id, (patch) =>
-      patch
-        .setIfMissing({
-          totalDanaDihimpun: 0,
-          totalTransaksiSukses: 0,
-          totalFee: 0,
-          sisaSaldoFee: 0,
-          feePaid: 0,
-        })
-        .inc({
-          totalDanaDihimpun: donationAmount,
-          totalTransaksiSukses: 1,
-          totalFee: feeAmount,
-          sisaSaldoFee: feeAmount,
-        })
-        .set({
-          updatedAt: new Date().toISOString(),
-        })
-    );
-
-    tx = tx.patch(transaction._id, (patch) => {
-      let next = patch.set({
-        fundraiserCreditedAt: new Date().toISOString(),
-      });
-      if (freshTransaction?._rev) {
-        next = next.ifRevisionId(freshTransaction._rev);
-      }
-      return next;
-    });
-
-    await tx.commit();
-
-    return {
-      credited: true,
-      reason: "credited",
-      feeAmount,
-    };
-  } catch (error) {
-    const fresh =
-      await sanityClient.fetch<{
-        fundraiserCreditedAt?: string;
-      } | null>(
-        `*[
-          _type == "donationTransaction" &&
-          _id == $id
-        ][0]{
-          fundraiserCreditedAt
-        }`,
-        {
-          id:
-            transaction._id,
-        }
-      );
-
-    if (
-      fresh?.fundraiserCreditedAt
-    ) {
-      return {
-        credited: false,
-        reason:
-          "already_credited",
-      };
-    }
-
-    throw error;
-  }
-}
-
-// ============================================================================
-// POST
-// ============================================================================
-
-export async function POST(
-  request: Request
-) {
-  try {
-    const webhookSecret =
-      process.env.CASAKU_WEBHOOK_SECRET?.trim();
-
-    const sanityToken =
-      process.env.SANITY_API_TOKEN?.trim() ||
-      process.env.SANITY_API_WRITE_TOKEN?.trim();
 
     if (!webhookSecret) {
       console.error(
-        "❌ CASAKU_WEBHOOK_SECRET belum dikonfigurasi."
+        "[CASAKU WEBHOOK] CASAKU_WEBHOOK_SECRET belum dikonfigurasi."
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Server configuration error.",
-        },
-        {
-          status: 500,
-        }
+      return webhookError(
+        "Server webhook belum dikonfigurasi.",
+        500
       );
     }
 
-    if (!sanityToken) {
-      console.error(
-        "❌ SANITY_API_TOKEN belum dikonfigurasi."
-      );
+    // =====================================================
+    // 2. AMBIL SIGNATURE
+    // =====================================================
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Server configuration error.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const receivedSignature =
-      request.headers
-        .get(
-          "x-casaku-signature"
-        )
-        ?.trim() || "";
+    const receivedSignature = cleanText(
+      request.headers.get("x-casaku-signature"),
+      200
+    );
 
     if (!receivedSignature) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Missing signature.",
-        },
-        {
-          status: 401,
-        }
+      console.warn(
+        "[CASAKU WEBHOOK] Signature tidak ditemukan."
+      );
+
+      return webhookError(
+        "Missing signature.",
+        401
       );
     }
 
-    const rawBody =
-      await request.text();
+    // =====================================================
+    // 3. BACA RAW BODY
+    // =====================================================
+
+    /*
+     * Jangan menggunakan request.json() sebelum verifikasi.
+     * Signature harus diperiksa menggunakan raw body asli.
+     */
+
+    const rawBody = await request.text();
 
     if (!rawBody) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Empty webhook payload.",
-        },
-        {
-          status: 400,
-        }
+      return webhookError(
+        "Empty webhook payload.",
+        400
       );
     }
 
-    if (
-      !verifySignature({
-        rawBody,
-        receivedSignature,
-        secret:
-          webhookSecret,
-      })
-    ) {
+    // =====================================================
+    // 4. VERIFIKASI SIGNATURE
+    // =====================================================
+
+    const signatureValid = verifySignature({
+      rawBody,
+      receivedSignature,
+      secret: webhookSecret,
+    });
+
+    if (!signatureValid) {
       console.warn(
-        "⚠️ Signature webhook Casaku tidak valid."
+        "[CASAKU WEBHOOK] Signature tidak valid."
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid signature.",
-        },
-        {
-          status: 401,
-        }
+      return webhookError(
+        "Invalid signature.",
+        401
       );
     }
 
-    let payload:
-      CasakuWebhookPayload;
+    // =====================================================
+    // 5. PARSE PAYLOAD
+    // =====================================================
+
+    let payload: CasakuWebhookPayload;
 
     try {
-      payload =
-        JSON.parse(
-          rawBody
-        ) as CasakuWebhookPayload;
+      payload = JSON.parse(
+        rawBody
+      ) as CasakuWebhookPayload;
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid JSON payload.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const transactionId =
-      cleanText(
-        payload.transactionId ||
-          payload.id ||
-          payload.trx_id ||
-          payload.orderId,
-        250
-      );
-
-    const webhookStatus =
-      cleanText(
-        payload.status,
-        30
-      ).toLowerCase();
-
-    const webhookAmount =
-      Number(
-        payload.amount ??
-          payload.totalAmount ??
-          0
-      );
-
-    const packageName =
-      cleanText(
-        payload.packageName,
-        150
-      );
-
-    const appName =
-      cleanText(
-        payload.appName,
-        150
-      );
-
-    const paidAt =
-      cleanText(
-        payload.paidAt,
-        100
-      );
-
-    if (!transactionId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "transactionId tidak ditemukan.",
-        },
-        {
-          status: 400,
-        }
+      return webhookError(
+        "Invalid JSON payload.",
+        400
       );
     }
 
     if (
-      webhookStatus !== "paid" &&
-      webhookStatus !== "success" &&
-      webhookStatus !== "settlement" &&
-      webhookStatus !== "completed"
+      !payload ||
+      typeof payload !== "object" ||
+      Array.isArray(payload)
     ) {
-      return NextResponse.json(
-        {
-          success: true,
-          ignored: true,
-          message:
-            "Webhook bukan status paid/success.",
-        },
-        {
-          status: 200,
-        }
+      return webhookError(
+        "Invalid webhook payload.",
+        400
       );
     }
 
-    let transaction =
-      await sanityClient.fetch<SanityDonationTransaction | null>(
-        `*[
-          _type == "donationTransaction" &&
-          (
-            transactionId == $transactionId ||
-            orderId == $transactionId
-          )
-        ][0]{
-          _id,
-          _rev,
-          orderId,
-          transactionId,
-          donorName,
-          donorPhone,
-          donorEmail,
-          amount,
-          paymentAmount,
-          status,
-          paidAt,
-          paymentProvider,
-          paymentMethod,
-          fundraiserPhone,
-          programCreditedAt,
-          fundraiserCreditedAt,
-          "programId": programName->_id,
-          "programTitle": programName->title
-        }`,
+    // =====================================================
+    // 6. AMBIL TRANSACTION ID CASAKU
+    // =====================================================
+
+    /*
+     * transactionId adalah ID transaksi gateway.
+     *
+     * id dan trx_id hanya dipertahankan sebagai alias
+     * jika format payload webhook menggunakan nama tersebut.
+     *
+     * orderId TIDAK BOLEH digunakan sebagai fallback.
+     */
+
+    const transactionId = cleanText(
+      payload.transactionId ||
+        payload.trx_id ||
+        payload.id,
+      250
+    );
+
+    const webhookStatus = normalizeStatus(
+      payload.status
+    );
+
+    const webhookAmount = Number(
+      payload.amount ??
+        payload.totalAmount ??
+        0
+    );
+
+    const packageName = cleanText(
+      payload.packageName,
+      150
+    );
+
+    const appName = cleanText(
+      payload.appName,
+      150
+    );
+
+    const webhookPaidAt = cleanText(
+      payload.paidAt,
+      100
+    );
+
+    if (!transactionId) {
+      console.error(
+        "[CASAKU WEBHOOK] transactionId tidak ditemukan.",
         {
-          transactionId,
+          hasOrderId: Boolean(payload.orderId),
+          status: webhookStatus,
         }
       );
 
-    if (!transaction) {
-      console.error(
-        "❌ Transaksi Casaku tidak ditemukan:",
+      return webhookError(
+        "transactionId Casaku tidak ditemukan.",
+        400
+      );
+    }
+
+    // =====================================================
+    // 7. FILTER STATUS WEBHOOK
+    // =====================================================
+
+    if (!isPaidStatus(webhookStatus)) {
+      console.log(
+        "[CASAKU WEBHOOK] Event diabaikan karena bukan pembayaran sukses.",
+        {
+          transactionId,
+          status: webhookStatus,
+        }
+      );
+
+      return NextResponse.json({
+        success: true,
+        ignored: true,
+        transactionId,
+        status: webhookStatus || "unknown",
+        message:
+          "Webhook diterima. Status bukan pembayaran berhasil.",
+      });
+    }
+
+    // =====================================================
+    // 8. CARI TRANSAKSI SANITY
+    // =====================================================
+
+    /*
+     * Pencarian WAJIB menggunakan transactionId Casaku.
+     * Tidak mencari menggunakan orderId.
+     */
+
+    let transaction =
+      await getDonationByTransactionId(
         transactionId
       );
 
+    if (!transaction) {
+      console.error(
+        "[CASAKU WEBHOOK] Transaksi tidak ditemukan.",
+        {
+          transactionId,
+        }
+      );
+
+      /*
+       * Gunakan 503 agar Casaku dapat mencoba mengirim
+       * webhook kembali jika transaksi belum tersimpan.
+       */
+
+      return webhookError(
+        "Transaksi belum ditemukan. Webhook perlu dicoba kembali.",
+        503
+      );
+    }
+
+    if (!transaction._id) {
+      console.error(
+        "[CASAKU WEBHOOK] Sanity document ID kosong.",
+        {
+          transactionId,
+          orderId: transaction.orderId,
+        }
+      );
+
+      return webhookError(
+        "ID dokumen transaksi tidak valid.",
+        500
+      );
+    }
+
+    // =====================================================
+    // 9. VALIDASI IDENTITAS TRANSAKSI
+    // =====================================================
+
+    const storedTransactionId = cleanText(
+      transaction.transactionId,
+      250
+    );
+
+    if (
+      !storedTransactionId ||
+      storedTransactionId !== transactionId
+    ) {
+      console.error(
+        "[CASAKU WEBHOOK] Transaction ID mismatch.",
+        {
+          sanityId: transaction._id,
+          orderId: transaction.orderId,
+          storedTransactionId,
+          webhookTransactionId: transactionId,
+        }
+      );
+
+      return webhookError(
+        "Transaction ID tidak cocok dengan data transaksi.",
+        409
+      );
+    }
+
+    // =====================================================
+    // 10. LOG INFORMASI WEBHOOK
+    // =====================================================
+
+    console.log(
+      "[CASAKU WEBHOOK] PAYMENT NOTIFICATION",
+      {
+        sanityId: transaction._id,
+        orderId: transaction.orderId,
+        transactionId,
+        webhookStatus,
+        webhookAmount:
+          Number.isFinite(webhookAmount)
+            ? webhookAmount
+            : null,
+        localAmount: transaction.amount,
+        localPaymentAmount:
+          transaction.paymentAmount,
+        localStatus: transaction.status,
+        packageName,
+        appName,
+        webhookPaidAt,
+      }
+    );
+
+    // =====================================================
+    // 11. REKONSILIASI PEMBAYARAN
+    // =====================================================
+
+    /*
+     * PENTING:
+     *
+     * Webhook yang valid belum cukup untuk langsung
+     * mengubah status Sanity menjadi success.
+     *
+     * reconcileDonation() bertanggung jawab untuk:
+     *
+     * 1. Memeriksa status langsung ke Casaku.
+     * 2. Memastikan transactionId cocok.
+     * 3. Memastikan nominal Casaku cocok dengan paymentAmount.
+     * 4. Memperbarui status dan paymentVerified di Sanity.
+     * 5. Memastikan pembayaran tidak turun dari success.
+     * 6. Memproses kredit program secara idempotent.
+     * 7. Memproses kredit fundraiser secara idempotent.
+     * 8. Menyinkronkan status Supabase sesuai helper.
+     *
+     * Jangan melakukan patch pembayaran atau kredit
+     * secara terpisah di file webhook ini.
+     */
+
+    console.log(
+      "[CASAKU WEBHOOK] RECONCILIATION START",
+      {
+        sanityId: transaction._id,
+        orderId: transaction.orderId,
+        transactionId,
+      }
+    );
+
+    const reconciliation =
+      await reconcileDonation(transaction);
+
+    // =====================================================
+    // 12. AMBIL DATA TRANSAKSI TERBARU
+    // =====================================================
+
+    /*
+     * Jangan hanya mengandalkan objek transaksi lama.
+     * Baca ulang data Sanity setelah settlement.
+     */
+
+    const freshTransaction =
+      await getDonationByTransactionId(
+        transactionId
+      );
+
+    if (!freshTransaction) {
+      throw new Error(
+        "Transaksi tidak ditemukan setelah proses rekonsiliasi."
+      );
+    }
+
+    // =====================================================
+    // 13. PASTIKAN PEMBAYARAN BENAR-BENAR TERVERIFIKASI
+    // =====================================================
+
+    const finalStatus = normalizeStatus(
+      freshTransaction.status
+    );
+
+    const paymentVerified =
+      freshTransaction.paymentVerified === true;
+
+    const finalTransactionId = cleanText(
+      freshTransaction.transactionId,
+      250
+    );
+
+    if (finalTransactionId !== transactionId) {
+      console.error(
+        "[CASAKU WEBHOOK] Transaction ID berubah setelah rekonsiliasi.",
+        {
+          transactionId,
+          finalTransactionId,
+          sanityId: freshTransaction._id,
+        }
+      );
+
+      return webhookError(
+        "Identitas transaksi berubah setelah verifikasi.",
+        409
+      );
+    }
+
+    /*
+     * Pembayaran baru boleh diakui sukses jika:
+     * - status lokal success/paid;
+     * - paymentVerified bernilai true.
+     */
+
+    if (
+      !isPaidStatus(finalStatus) ||
+      !paymentVerified
+    ) {
+      console.error(
+        "[CASAKU WEBHOOK] Pembayaran belum terverifikasi sepenuhnya.",
+        {
+          sanityId: freshTransaction._id,
+          orderId: freshTransaction.orderId,
+          transactionId,
+          finalStatus,
+          paymentVerified,
+          reconciliationStatus:
+            reconciliation?.status,
+          casakuStatus:
+            reconciliation?.casakuStatus,
+          webhookAmount,
+          paymentAmount:
+            freshTransaction.paymentAmount,
+        }
+      );
+
+      /*
+       * Jangan mengembalikan sukses palsu.
+       * Berikan kesempatan pengiriman ulang webhook.
+       */
+
       return NextResponse.json(
         {
           success: false,
+          verified: false,
+          transactionId,
+          orderId:
+            freshTransaction.orderId || null,
+          status: finalStatus || "pending",
           message:
-            "Transaction not found.",
+            "Webhook diterima, tetapi pembayaran belum berhasil diverifikasi. Silakan coba kembali.",
         },
         {
-          status: 404,
+          status: 503,
         }
       );
     }
 
-    const paymentAmount =
-      Number(
-        transaction.paymentAmount ??
-          transaction.amount ??
-          0
-      );
+    // =====================================================
+    // 14. SUKSES
+    // =====================================================
 
-    const donationAmount =
-      Number(
-        transaction.amount ??
-          webhookAmount ??
-          0
-      );
-
-    const verifiedPaidAt =
-      paidAt ||
-      transaction.paidAt ||
-      new Date().toISOString();
-
-    if (
-      transaction.status !==
-      "success"
-    ) {
-      const paymentPatch: Record<
-        string,
-        unknown
-      > = {
-        status: "success",
-        paymentProvider: "casaku",
-        paymentMethod: "qris",
-        paymentVerified: true,
-        paidAt: verifiedPaidAt,
-        paidAmount:
-          webhookAmount || paymentAmount,
-        updatedAt:
-          new Date().toISOString(),
-      };
-
-      if (packageName) {
-        paymentPatch.paymentPackageName =
-          packageName;
-      }
-
-      if (appName) {
-        paymentPatch.paymentAppName =
-          appName;
-      }
-
-      await sanityClient
-        .patch(
-          transaction._id
-        )
-        .set(
-          paymentPatch
-        )
-        .commit();
-
-      transaction =
-        await sanityClient.fetch<SanityDonationTransaction | null>(
-          `*[
-            _type == "donationTransaction" &&
-            _id == $id
-          ][0]{
-            _id,
-            _rev,
-            orderId,
-            transactionId,
-            donorName,
-            donorPhone,
-            donorEmail,
-            amount,
-            paymentAmount,
-            status,
-            paidAt,
-            paymentProvider,
-            paymentMethod,
-            fundraiserPhone,
-            programCreditedAt,
-            fundraiserCreditedAt,
-            "programId": programName->_id,
-            "programTitle": programName->title
-          }`,
-          {
-            id:
-              transaction._id,
-          }
-        );
-
-      if (!transaction) {
-        throw new Error(
-          "Transaksi hilang setelah update."
-        );
-      }
-    }
-
-    const programResult =
-      await creditProgram({
-        transaction,
-        donationAmount,
-        paidAt:
-          verifiedPaidAt,
-      });
-
-    transaction =
-      await sanityClient.fetch<SanityDonationTransaction | null>(
-        `*[
-          _type == "donationTransaction" &&
-          _id == $id
-        ][0]{
-          _id,
-          _rev,
-          orderId,
-          transactionId,
-          donorName,
-          donorPhone,
-          donorEmail,
-          amount,
-          paymentAmount,
-          status,
-          paidAt,
-          paymentProvider,
-          paymentMethod,
-          fundraiserPhone,
-          programCreditedAt,
-          fundraiserCreditedAt,
-          "programId": programName->_id,
-          "programTitle": programName->title
-        }`,
-        {
-          id:
-            transaction._id,
-        }
-      );
-
-    if (!transaction) {
-      throw new Error(
-        "Transaksi tidak ditemukan setelah credit program."
-      );
-    }
-
-    const fundraiserResult =
-      await creditFundraiser({
-        transaction,
-        donationAmount,
-      });
-
-    await syncSupabaseSuccess(
-      transaction.orderId
-    );
-
-    return NextResponse.json(
+    console.log(
+      "[CASAKU WEBHOOK] PAYMENT VERIFIED",
       {
-        success: true,
-        message:
-          "Webhook processed successfully.",
+        sanityId: freshTransaction._id,
+        orderId: freshTransaction.orderId,
         transactionId,
-        orderId:
-          transaction.orderId ||
-          null,
-        donationAmount,
-        paymentAmount,
-        program:
-          programResult,
-        fundraiser:
-          fundraiserResult,
-      },
-      {
-        status: 200,
+        amount: freshTransaction.amount,
+        paymentAmount:
+          freshTransaction.paymentAmount,
+        paidAmount: freshTransaction.paidAmount,
+        paidAt: freshTransaction.paidAt,
+        programCreditedAt:
+          freshTransaction.programCreditedAt,
+        fundraiserCreditedAt:
+          freshTransaction.fundraiserCreditedAt,
       }
     );
-  } catch (error) {
+
+    return NextResponse.json({
+      success: true,
+      verified: true,
+      status: "paid",
+      message:
+        "Pembayaran berhasil diverifikasi dan rekonsiliasi selesai.",
+      transactionId,
+      orderId:
+        freshTransaction.orderId || null,
+      amount: freshTransaction.amount,
+      paymentAmount:
+        freshTransaction.paymentAmount,
+      paidAmount:
+        freshTransaction.paidAmount,
+      paidAt: freshTransaction.paidAt || null,
+      reconciliation: {
+        status:
+          reconciliation?.status ?? null,
+        casakuStatus:
+          reconciliation?.casakuStatus ?? null,
+      },
+    });
+
+  } catch (error: unknown) {
     console.error(
-      "🔥 Error webhook Casaku:",
+      "[CASAKU WEBHOOK ERROR]",
       error
     );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Internal server error.";
 
     return NextResponse.json(
       {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Internal server error.",
+          "Webhook gagal diproses.",
+        detail:
+          process.env.NODE_ENV === "development"
+            ? message
+            : undefined,
       },
       {
         status: 500,

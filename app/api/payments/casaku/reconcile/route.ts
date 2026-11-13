@@ -1,4 +1,3 @@
-// app/api/payments/casaku/reconcile/route.ts
 
 import { NextResponse } from "next/server";
 
@@ -12,91 +11,100 @@ import {
 // NEXT CONFIG
 // ============================================================================
 
-export const dynamic =
-  "force-dynamic";
-
-export const runtime =
-  "nodejs";
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const MAX_TRANSACTIONS_PER_RUN =
-  40;
+const MAX_TRANSACTIONS_PER_RUN = 40;
 
 // ============================================================================
 // AUTH CRON
 // ============================================================================
 
-function isAuthorized(
-  request: Request
-): boolean {
-  const secret =
-    process.env.CRON_SECRET?.trim();
+function isAuthorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET?.trim();
 
-  // --------------------------------------------------------------------------
-  // Di production WAJIB ada CRON_SECRET.
-  // --------------------------------------------------------------------------
+  /*
+   * Production wajib memiliki CRON_SECRET.
+   * Development boleh berjalan tanpa secret.
+   */
 
   if (!secret) {
-    return (
-      process.env.NODE_ENV !==
-      "production"
-    );
+    return process.env.NODE_ENV !== "production";
   }
 
-  const authorization =
-    request.headers.get(
-      "authorization"
-    );
+  const authorization = request.headers.get("authorization");
 
-  if (
-    authorization ===
-    `Bearer ${secret}`
-  ) {
+  if (authorization === `Bearer ${secret}`) {
     return true;
   }
 
-  const customSecret =
-    request.headers.get(
-      "x-cron-secret"
-    );
+  const customSecret = request.headers.get("x-cron-secret");
 
-  return (
-    customSecret ===
-    secret
-  );
+  return customSecret === secret;
 }
 
 // ============================================================================
-// GET
-//
-// Vercel Cron menggunakan GET.
+// HELPERS
 // ============================================================================
 
-export async function GET(
-  request: Request
-) {
-  const startedAt =
-    Date.now();
+function cleanText(
+  value: unknown,
+  maxLength = 250
+): string {
+  return String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function normalizeStatus(value: unknown): string {
+  return cleanText(value, 50).toLowerCase();
+}
+
+function isSuccessResult(value: unknown): boolean {
+  return [
+    "success",
+    "successful",
+    "paid",
+    "settlement",
+    "settled",
+    "completed",
+    "complete",
+  ].includes(normalizeStatus(value));
+}
+
+function isFailedResult(value: unknown): boolean {
+  return [
+    "failed",
+    "failure",
+    "expired",
+    "expire",
+    "cancel",
+    "cancelled",
+    "canceled",
+  ].includes(normalizeStatus(value));
+}
+
+// ============================================================================
+// GET: VERCEL CRON
+// ============================================================================
+
+export async function GET(request: Request) {
+  const startedAt = Date.now();
 
   try {
-    // =========================================================================
+    // ========================================================================
     // 1. SECURITY
-    // =========================================================================
+    // ========================================================================
 
-    if (
-      !isAuthorized(
-        request
-      )
-    ) {
+    if (!isAuthorized(request)) {
       return NextResponse.json(
         {
           success: false,
-
-          message:
-            "Unauthorized.",
+          message: "Unauthorized.",
         },
         {
           status: 401,
@@ -104,19 +112,51 @@ export async function GET(
       );
     }
 
-    // =========================================================================
-    // 2. AMBIL TRANSAKSI YANG PERLU DIPERIKSA
-    //
-    // Yang diproses:
-    //
-    // A. pending Casaku
-    //
-    // B. sudah success tetapi program belum dikredit
-    //
-    // C. success + ada fundraiser tetapi fundraiser belum dikredit
-    //
-    // Batasi transaksi Casaku saja.
-    // =========================================================================
+    // ========================================================================
+    // 2. VALIDASI KONFIGURASI
+    // ========================================================================
+
+    if (
+      !process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
+      !(
+        process.env.SANITY_API_WRITE_TOKEN ||
+        process.env.SANITY_API_TOKEN
+      )
+    ) {
+      throw new Error(
+        "Konfigurasi Sanity belum lengkap."
+      );
+    }
+
+    if (
+      !process.env.CASAKU_LICENSE_KEY?.trim()
+    ) {
+      throw new Error(
+        "CASAKU_LICENSE_KEY belum dikonfigurasi."
+      );
+    }
+
+    // ========================================================================
+    // 3. AMBIL TRANSAKSI YANG PERLU DIREKONSILIASI
+    // ========================================================================
+
+    /*
+     * Transaksi yang diproses:
+     *
+     * A. Pending dari Casaku.
+     *
+     * B. Success tetapi belum terverifikasi.
+     *
+     * C. Success tetapi kredit program belum diproses.
+     *
+     * D. Success dengan fundraiser tetapi kredit fundraiser belum diproses.
+     *
+     * Catatan:
+     * - Tidak mengambil transaksi provider lain.
+     * - Tidak menggunakan orderId sebagai transactionId Casaku.
+     * - Transaksi harus memiliki transactionId.
+     * - Transaksi lama diprioritaskan agar tidak tertinggal.
+     */
 
     const transactions =
       await paymentSanityClient.fetch<
@@ -124,6 +164,9 @@ export async function GET(
       >(
         `*[
           _type == "donationTransaction"
+
+          && defined(transactionId)
+          && transactionId != ""
 
           && (
             paymentProvider == "casaku"
@@ -146,34 +189,26 @@ export async function GET(
               status == "success"
 
               && (
-                !defined(
-                  programCreditedAt
-                )
+                paymentVerified != true
+
+                ||
+
+                !defined(programCreditedAt)
 
                 ||
 
                 (
-                  defined(
-                    fundraiserPhone
-                  )
+                  defined(fundraiserPhone)
 
-                  &&
+                  && fundraiserPhone != ""
 
-                  fundraiserPhone != ""
-
-                  &&
-
-                  !defined(
-                    fundraiserCreditedAt
-                  )
+                  && !defined(fundraiserCreditedAt)
                 )
               )
             )
           )
         ]
-        | order(
-            _updatedAt desc
-          )
+        | order(_createdAt asc)
         [0...$limit]{
           _id,
           _rev,
@@ -205,131 +240,190 @@ export async function GET(
           programCreditedAt,
           fundraiserCreditedAt,
 
-          "programId":
-            programName->_id,
-
-          "programTitle":
-            programName->title
+          "programId": programName->_id,
+          "programTitle": programName->title
         }`,
         {
-          limit:
-            MAX_TRANSACTIONS_PER_RUN,
+          limit: MAX_TRANSACTIONS_PER_RUN,
         }
       );
 
-    // =========================================================================
-    // 3. PROCESS SEQUENTIAL
-    //
-    // Jangan Promise.all() puluhan request sekaligus.
-    // Kita jaga tekanan ke API Casaku tetap ringan.
-    // =========================================================================
+    // ========================================================================
+    // 4. COUNTERS
+    // ========================================================================
 
-    let checked =
-      0;
-
-    let paid =
-      0;
-
-    let pending =
-      0;
-
-    let failed =
-      0;
-
-    let recoveredPrograms =
-      0;
-
-    let recoveredFundraisers =
-      0;
+    let checked = 0;
+    let paid = 0;
+    let pending = 0;
+    let failed = 0;
+    let recoveredPrograms = 0;
+    let recoveredFundraisers = 0;
 
     const errors: Array<{
+      sanityId?: string;
       orderId?: string;
-
       transactionId?: string;
-
       message: string;
     }> = [];
 
-    for (
-      const transaction of
-        transactions
-    ) {
+    // ========================================================================
+    // 5. PROCESS SEQUENTIAL
+    // ========================================================================
+
+    /*
+     * Sengaja tidak menggunakan Promise.all().
+     *
+     * Setiap transaksi diproses satu per satu untuk mengurangi
+     * tekanan ke Casaku dan menghindari proses kredit bersamaan.
+     */
+
+    for (const transaction of transactions) {
+      checked += 1;
+
+      const sanityId = cleanText(
+        transaction._id
+      );
+
+      const orderId = cleanText(
+        transaction.orderId
+      );
+
+      const transactionId = cleanText(
+        transaction.transactionId
+      );
+
       try {
-        checked +=
-          1;
+        // --------------------------------------------------------------------
+        // Validasi data transaksi
+        // --------------------------------------------------------------------
 
-        const result =
-          await reconcileDonation(
-            transaction
+        if (!sanityId) {
+          throw new Error(
+            "Sanity document ID tidak ditemukan."
           );
-
-        if (
-          result.status ===
-          "success"
-        ) {
-          paid +=
-            1;
-        } else if (
-          result.status ===
-          "failed"
-        ) {
-          failed +=
-            1;
-        } else {
-          pending +=
-            1;
         }
 
-        if (
-          result.credits
-            ?.program
-            ?.credited
-        ) {
-          recoveredPrograms +=
-            1;
+        if (!transactionId) {
+          throw new Error(
+            "Casaku transactionId tidak ditemukan."
+          );
         }
 
-        if (
-          result.credits
-            ?.fundraiser
-            ?.credited
-        ) {
-          recoveredFundraisers +=
-            1;
-        }
-      } catch (error) {
-        console.error(
-          "[CASAKU RECONCILE] Gagal:",
+        // --------------------------------------------------------------------
+        // Rekonsiliasi
+        // --------------------------------------------------------------------
+
+        console.log(
+          "[CASAKU RECONCILE] START",
           {
-            orderId:
-              transaction.orderId,
+            sanityId,
+            orderId,
+            transactionId,
+            status: transaction.status,
+            paymentVerified:
+              transaction.paymentVerified,
+            amount: transaction.amount,
+            paymentAmount:
+              transaction.paymentAmount,
+          }
+        );
 
-            transactionId:
-              transaction.transactionId,
+        const result = await reconcileDonation(
+          transaction
+        );
 
+        // --------------------------------------------------------------------
+        // Klasifikasi hasil
+        // --------------------------------------------------------------------
+
+        if (isSuccessResult(result.status)) {
+          paid += 1;
+        } else if (isFailedResult(result.status)) {
+          failed += 1;
+        } else {
+          pending += 1;
+        }
+
+        // --------------------------------------------------------------------
+        // Hitung kredit program yang berhasil dipulihkan
+        // --------------------------------------------------------------------
+
+        if (result.credits?.program?.credited) {
+          recoveredPrograms += 1;
+        }
+
+        // --------------------------------------------------------------------
+        // Hitung kredit fundraiser yang berhasil dipulihkan
+        // --------------------------------------------------------------------
+
+        if (result.credits?.fundraiser?.credited) {
+          recoveredFundraisers += 1;
+        }
+
+        // --------------------------------------------------------------------
+        // Log hasil
+        // --------------------------------------------------------------------
+
+        console.log(
+          "[CASAKU RECONCILE] RESULT",
+          {
+            sanityId,
+            orderId,
+            transactionId,
+            status: result.status,
+            casakuStatus: result.casakuStatus,
+            programCredited:
+              result.credits?.program?.credited ?? false,
+            fundraiserCredited:
+              result.credits?.fundraiser?.credited ?? false,
+          }
+        );
+
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unknown error";
+
+        console.error(
+          "[CASAKU RECONCILE] TRANSACTION ERROR",
+          {
+            sanityId,
+            orderId,
+            transactionId,
+            message,
             error,
           }
         );
 
         errors.push({
-          orderId:
-            transaction.orderId,
-
-          transactionId:
-            transaction.transactionId,
-
-          message:
-            error instanceof
-            Error
-              ? error.message
-              : "Unknown error",
+          sanityId,
+          orderId,
+          transactionId,
+          message,
         });
       }
     }
 
-    // =========================================================================
-    // 4. RESULT
-    // =========================================================================
+    // ========================================================================
+    // 6. FINAL RESULT
+    // ========================================================================
+
+    const durationMs = Date.now() - startedAt;
+
+    console.log(
+      "[CASAKU RECONCILE] COMPLETED",
+      {
+        checked,
+        paid,
+        pending,
+        failed,
+        recoveredPrograms,
+        recoveredFundraisers,
+        errors: errors.length,
+        durationMs,
+      }
+    );
 
     return NextResponse.json(
       {
@@ -347,46 +441,47 @@ export async function GET(
 
         recoveredFundraisers,
 
-        errors:
-          errors.slice(
-            0,
-            10
-          ),
+        errorCount: errors.length,
 
-        durationMs:
-          Date.now() -
-          startedAt,
+        errors: errors.slice(0, 10),
+
+        durationMs,
       },
       {
         status: 200,
-
         headers: {
-          "Cache-Control":
-            "no-store, max-age=0",
+          "Cache-Control": "no-store, max-age=0",
         },
       }
     );
-  } catch (error) {
+
+  } catch (error: unknown) {
     console.error(
-      "[CASAKU RECONCILE] Fatal:",
+      "[CASAKU RECONCILE] FATAL ERROR",
       error
     );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan sistem.";
 
     return NextResponse.json(
       {
         success: false,
-
         message:
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan sistem.",
-
-        durationMs:
-          Date.now() -
-          startedAt,
+          "Proses rekonsiliasi pembayaran gagal.",
+        detail:
+          process.env.NODE_ENV === "development"
+            ? message
+            : undefined,
+        durationMs: Date.now() - startedAt,
       },
       {
         status: 500,
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
       }
     );
   }

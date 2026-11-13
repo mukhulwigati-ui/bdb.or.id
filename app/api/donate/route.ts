@@ -2,23 +2,27 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@sanity/client";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
+import { Casaku } from "casaku";
 
 // ============================================================================
-// CONFIG
+// ROUTE CONFIG
 // ============================================================================
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const revalidate = 0;
 
-const CASAKU_API_BASE_URL = "https://api.casaku.id";
-const CASAKU_GENERATE_ENDPOINT =
-  `${CASAKU_API_BASE_URL}/api/generate/v2/qris`;
+// ============================================================================
+// PAYMENT CONFIG
+// ============================================================================
 
 const CASAKU_EXPIRED_MINUTES = 15;
 const CASAKU_PREFIX = "BDB";
+
+const CASAKU_PACKAGE_IDS = ["id.dana"];
 
 // ============================================================================
 // SANITY CONFIG
@@ -78,58 +82,37 @@ interface DonateRequestBody {
 }
 
 interface CasakuGenerateData {
-  transactionId?: string;
-  id?: string;
-  trx_id?: string;
-  transaction_id?: string;
-  reference?: string;
-  reference_id?: string;
-  order_id?: string;
+  transactionId: string;
 
-  amount?: number | string;
-  totalAmount?: number | string;
-  total_amount?: number | string;
+  originalAmount: number;
+  totalAmount: number;
+  uniqueNominal: number;
+
+  packageIds: string[];
+  expiredInMinutes: number;
+
+  qrType: "dynamic" | "static";
+  paymentMethod: "qris" | "ewallet";
+  useQris: boolean;
 
   qr_string?: string;
-  qrString?: string;
-  qris?: string;
-  qrCode?: string;
-  qr_code?: string;
-
-  status?: number | string | boolean;
+  status: "pending" | "paid" | "cancel" | "expired";
 
   createdAt?: string;
-  created_at?: string;
-
   expiredAt?: string;
-  expired_at?: string;
-  expiresAt?: string;
-  expires_at?: string;
-
-  [key: string]: unknown;
 }
 
-interface CasakuGenerateResponse {
-  status?: number | string | boolean;
-  success?: boolean;
-  message?: string;
-
-  data?: CasakuGenerateData;
-
-  transactionId?: string;
-  id?: string;
-  trx_id?: string;
-  transaction_id?: string;
-  reference?: string;
-
-  qr_string?: string;
-  qrString?: string;
-  qris?: string;
-
-  amount?: number | string;
-  totalAmount?: number | string;
-
-  [key: string]: unknown;
+interface CasakuGenerateResult {
+  transactionId: string;
+  originalAmount: number;
+  totalAmount: number;
+  uniqueNominal: number;
+  qrString: string;
+  status: string;
+  createdAt: string;
+  expiredAt: string;
+  expiredInMinutes: number;
+  raw: CasakuGenerateData;
 }
 
 // ============================================================================
@@ -137,9 +120,20 @@ interface CasakuGenerateResponse {
 // ============================================================================
 
 function cleanAmountValue(value: unknown): number {
-  return (
-    Number(String(value ?? "").replace(/[^0-9]/g, "")) || 0
-  );
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0
+      ? value
+      : 0;
+  }
+
+  const cleaned = String(value ?? "")
+    .replace(/[^0-9]/g, "");
+
+  const amount = Number(cleaned);
+
+  return Number.isSafeInteger(amount) && amount > 0
+    ? amount
+    : 0;
 }
 
 function cleanText(
@@ -152,17 +146,58 @@ function cleanText(
 }
 
 function normalizePhone(value: unknown): string {
-  return String(value ?? "").replace(/[^0-9]/g, "");
+  return String(value ?? "")
+    .replace(/[^0-9]/g, "");
 }
 
 function getFirstText(...values: unknown[]): string {
   for (const value of values) {
     const result = cleanText(value, 10000);
 
-    if (result) return result;
+    if (result) {
+      return result;
+    }
   }
 
   return "";
+}
+
+function isValidPaymentStatus(
+  value: unknown
+): value is "pending" | "paid" | "cancel" | "expired" {
+  return [
+    "pending",
+    "paid",
+    "cancel",
+    "expired",
+  ].includes(
+    cleanText(value, 50).toLowerCase()
+  );
+}
+
+function getExpiryDate(
+  createdAt: string,
+  expiredAt: string | undefined,
+  expiredInMinutes: number
+): string {
+  if (expiredAt) {
+    const parsed = new Date(expiredAt);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  const created = new Date(createdAt);
+
+  const baseDate = Number.isNaN(created.getTime())
+    ? new Date()
+    : created;
+
+  return new Date(
+    baseDate.getTime() +
+      expiredInMinutes * 60 * 1000
+  ).toISOString();
 }
 
 // ============================================================================
@@ -171,6 +206,7 @@ function getFirstText(...values: unknown[]): string {
 
 function generateOrderId(): string {
   const timestamp = Date.now();
+
   const uniqueId = randomUUID()
     .replace(/-/g, "")
     .slice(0, 12)
@@ -189,6 +225,12 @@ function getRequiredEnvironment() {
 
   const qrisId =
     process.env.CASAKU_QRIS_ID?.trim();
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!licenseKey) {
     throw new Error(
@@ -217,11 +259,13 @@ function getRequiredEnvironment() {
   return {
     licenseKey,
     qrisId,
+    supabaseUrl,
+    supabaseAnonKey,
   };
 }
 
 // ============================================================================
-// CASAKU - CREATE QRIS TRANSACTION
+// CASAKU - CREATE QRIS TRANSACTION USING OFFICIAL SDK
 // ============================================================================
 
 async function createCasakuTransaction({
@@ -232,233 +276,329 @@ async function createCasakuTransaction({
   licenseKey: string;
   qrisId: string;
   amount: number;
-}) {
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 20000);
-
+}): Promise<CasakuGenerateResult> {
   try {
-    const response = await fetch(
-      CASAKU_GENERATE_ENDPOINT,
-      {
-        method: "POST",
+    const casaku = new Casaku({
+      licenseKey,
+    });
 
-        headers: {
-          "Content-Type": "application/json",
-          "x-license-key": licenseKey,
-          Accept: "application/json",
-        },
+    // Gunakan SDK resmi Casaku.
+    // Parameter mengikuti dokumentasi generateQRISv2.
+    const response = await casaku.generateQRISv2({
+      qr_id: qrisId,
+      amount,
 
-        body: JSON.stringify({
-          qr_id: qrisId,
-          amount,
+      useUniqueCode: true,
 
-          useUniqueCode: true,
+      packageIds: CASAKU_PACKAGE_IDS,
 
-          packageIds: ["id.dana"],
+      expiredInMinutes: CASAKU_EXPIRED_MINUTES,
 
-          expiredInMinutes: CASAKU_EXPIRED_MINUTES,
+      qrType: "dynamic",
+      paymentMethod: "qris",
+      useQris: true,
 
-          qrType: "dynamic",
-          paymentMethod: "qris",
-          useQris: true,
+      prefix: CASAKU_PREFIX,
+    });
 
-          prefix: CASAKU_PREFIX,
-        }),
-
-        cache: "no-store",
-        signal: controller.signal,
-      }
-    );
-
-    const rawText = await response.text();
-
-    let json: CasakuGenerateResponse | null = null;
-
-    try {
-      json = rawText
-        ? JSON.parse(rawText)
-        : null;
-    } catch {
-      console.error(
-        "[CASAKU CREATE] Respons bukan JSON:",
-        rawText
-      );
-    }
-
-    if (!response.ok || !json) {
+    // Status ini adalah status respons API,
+    // BUKAN status pembayaran.
+    if (response.status !== 200) {
       throw new Error(
-        json?.message ||
-        `Casaku gagal. HTTP ${response.status}: ${rawText.slice(0, 500)}`
+        `Casaku API mengembalikan status ${response.status}.`
       );
     }
 
-    const responseStatus = String(
-      json.status ?? ""
-    )
-      .toLowerCase()
-      .trim();
+    const data = response.data as CasakuGenerateData;
 
-    const validResponseStatus = [
-      "",
-      "200",
-      "201",
-      "true",
-      "success",
-    ].includes(responseStatus);
-
-    if (
-      json.success === false ||
-      !validResponseStatus
-    ) {
+    if (!data || typeof data !== "object") {
       throw new Error(
-        json.message ||
-        `Casaku menolak transaksi: ${rawText.slice(0, 500)}`
+        "Casaku tidak mengembalikan data transaksi."
       );
     }
 
-    const data =
-      json.data &&
-      typeof json.data === "object"
-        ? json.data
-        : json;
-
-    // ID ASLI DARI CASAKU.
-    // ID ini BUKAN orderId internal website.
-
-    const transactionId = getFirstText(
+    // ID transaksi yang diberikan oleh Casaku.
+    const transactionId = cleanText(
       data.transactionId,
-      data.transaction_id,
-      data.trx_id,
-      data.id,
-      data.reference,
-      data.reference_id,
-      data.order_id,
-
-      json.transactionId,
-      json.transaction_id,
-      json.trx_id,
-      json.id,
-      json.reference
+      250
     );
-
-    const qrString = getFirstText(
-      data.qr_string,
-      data.qrString,
-      data.qris,
-      data.qrCode,
-      data.qr_code,
-
-      json.qr_string,
-      json.qrString,
-      json.qris,
-      json.qrCode,
-      json.qr_code
-    );
-
-    const rawTotalAmount =
-      data.totalAmount ??
-      data.total_amount ??
-      data.amount ??
-      json.totalAmount ??
-      json.amount ??
-      amount;
-
-    const totalAmount = Number(rawTotalAmount);
-
-    if (
-      !Number.isFinite(totalAmount) ||
-      totalAmount <= 0
-    ) {
-      throw new Error(
-        "Nominal pembayaran yang dikembalikan Casaku tidak valid."
-      );
-    }
 
     if (!transactionId) {
       console.error(
-        "[CASAKU CREATE] ID tidak ditemukan:",
-        json
+        "[CASAKU CREATE] transactionId kosong:",
+        data
       );
 
       throw new Error(
-        "Casaku tidak mengembalikan ID transaksi."
+        "Casaku tidak mengembalikan transactionId."
       );
     }
+
+    // QRIS string dari SDK.
+    const qrString = cleanText(
+      data.qr_string,
+      10000
+    );
 
     if (!qrString) {
       console.error(
-        "[CASAKU CREATE] QRIS tidak ditemukan:",
-        json
+        "[CASAKU CREATE] qr_string kosong:",
+        data
       );
 
       throw new Error(
-        "Casaku tidak mengembalikan kode QRIS."
+        "Casaku tidak mengembalikan qr_string."
       );
     }
 
-    const createdAt = getFirstText(
-      data.createdAt,
-      data.created_at,
-      json.createdAt,
-      json.created_at
+    // Nominal awal harus sama dengan nominal yang diminta.
+    const originalAmount = Number(
+      data.originalAmount
     );
 
-    const expiredAt = getFirstText(
-      data.expiredAt,
-      data.expired_at,
-      data.expiresAt,
-      data.expires_at,
+    if (
+      !Number.isFinite(originalAmount) ||
+      originalAmount !== amount
+    ) {
+      throw new Error(
+        `Nominal awal Casaku tidak cocok. Diminta Rp${amount}, dikembalikan Rp${originalAmount}.`
+      );
+    }
 
-      json.expiredAt,
-      json.expired_at,
-      json.expiresAt,
-      json.expires_at
+    // totalAmount termasuk kode unik jika digunakan.
+    const totalAmount = Number(
+      data.totalAmount
     );
 
+    if (
+      !Number.isSafeInteger(totalAmount) ||
+      totalAmount <= 0 ||
+      totalAmount < originalAmount
+    ) {
+      console.error(
+        "[CASAKU CREATE] totalAmount tidak valid:",
+        data
+      );
+
+      throw new Error(
+        "Casaku mengembalikan totalAmount yang tidak valid."
+      );
+    }
+
+    const uniqueNominal = Number(
+      data.uniqueNominal ?? 0
+    );
+
+    if (
+      !Number.isFinite(uniqueNominal) ||
+      uniqueNominal < 0
+    ) {
+      throw new Error(
+        "Casaku mengembalikan uniqueNominal yang tidak valid."
+      );
+    }
+
+    // Status pembayaran berasal dari data.status.
     const status = cleanText(
-      data.status ?? json.status ?? "pending",
+      data.status,
       50
+    ).toLowerCase();
+
+    if (!isValidPaymentStatus(status)) {
+      throw new Error(
+        `Status transaksi Casaku tidak dikenal: ${status || "(kosong)"}.`
+      );
+    }
+
+    const createdAt =
+      getFirstText(data.createdAt) ||
+      new Date().toISOString();
+
+    const expiredInMinutes = Number(
+      data.expiredInMinutes ??
+      CASAKU_EXPIRED_MINUTES
+    );
+
+    if (
+      !Number.isFinite(expiredInMinutes) ||
+      expiredInMinutes <= 0
+    ) {
+      throw new Error(
+        "Masa berlaku transaksi Casaku tidak valid."
+      );
+    }
+
+    const expiredAt = getExpiryDate(
+      createdAt,
+      data.expiredAt,
+      expiredInMinutes
     );
 
     console.log(
-      "[CASAKU CREATE] Transaksi berhasil dibuat:",
+      "[CASAKU CREATE SUCCESS]",
       {
         transactionId,
-        amount,
+        originalAmount,
         totalAmount,
+        uniqueNominal,
         status,
+        createdAt,
         expiredAt,
       }
     );
 
     return {
       transactionId,
-      qrString,
+      originalAmount,
       totalAmount,
+      uniqueNominal,
+      qrString,
       status,
-      createdAt: createdAt || null,
-      expiredAt: expiredAt || null,
-      raw: json,
+      createdAt,
+      expiredAt,
+      expiredInMinutes,
+      raw: data,
     };
 
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === "AbortError"
-    ) {
-      throw new Error(
-        "Koneksi ke Casaku timeout. Silakan coba kembali."
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    console.error(
+      "[CASAKU CREATE ERROR]",
+      message
+    );
+
+    throw new Error(
+      `Gagal membuat QRIS Casaku: ${message}`
+    );
+  }
+}
+
+// ============================================================================
+// SUPABASE SESSION
+// ============================================================================
+
+async function getSupabaseSessionClient(
+  supabaseUrl: string | undefined,
+  supabaseAnonKey: string | undefined
+): Promise<{
+  client: SupabaseClient | null;
+  userId: string | null;
+}> {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn(
+      "[DONATE] Konfigurasi Supabase SSR tidak lengkap."
+    );
+
+    return {
+      client: null,
+      userId: null,
+    };
+  }
+
+  try {
+    const cookieStore = await cookies();
+
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(
+                ({ name, value, options }) => {
+                  cookieStore.set(
+                    name,
+                    value,
+                    options
+                  );
+                }
+              );
+            } catch {
+              // Cookie tidak dapat ditulis pada sebagian konteks.
+              // Tidak menggagalkan pembuatan transaksi.
+            }
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) {
+      console.warn(
+        "[DONATE] Gagal membaca user Supabase:",
+        error.message
       );
     }
 
-    throw error;
+    return {
+      client: supabase,
+      userId: user?.id || null,
+    };
 
-  } finally {
-    clearTimeout(timeout);
+  } catch (error) {
+    console.error(
+      "[DONATE] Supabase session error:",
+      error
+    );
+
+    return {
+      client: null,
+      userId: null,
+    };
   }
+}
+
+// ============================================================================
+// VALIDATE PROGRAM IN SANITY
+// ============================================================================
+
+async function validateProgram(
+  sanityClient: ReturnType<typeof createClient>,
+  programId: string
+): Promise<{
+  id: string;
+  title: string;
+}> {
+  const program =
+    await sanityClient.fetch<{
+      _id: string;
+      title?: string;
+    } | null>(
+      `*[
+        _type == "program" &&
+        _id == $programId
+      ][0]{
+        _id,
+        title
+      }`,
+      {
+        programId,
+      }
+    );
+
+  if (!program) {
+    throw new Error(
+      "Program donasi tidak ditemukan atau ID program tidak valid."
+    );
+  }
+
+  return {
+    id: program._id,
+    title: cleanText(program.title, 200),
+  };
 }
 
 // ============================================================================
@@ -467,16 +607,22 @@ async function createCasakuTransaction({
 
 export async function POST(request: Request) {
   try {
-    // 1. VALIDASI KONFIGURASI
+    // ========================================================
+    // 1. VALIDASI ENVIRONMENT
+    // ========================================================
 
     const {
       licenseKey,
       qrisId,
+      supabaseUrl,
+      supabaseAnonKey,
     } = getRequiredEnvironment();
 
     const sanityClient = getSanityClient();
 
-    // 2. BACA PAYLOAD
+    // ========================================================
+    // 2. BACA REQUEST BODY
+    // ========================================================
 
     let body: DonateRequestBody;
 
@@ -492,53 +638,40 @@ export async function POST(request: Request) {
       );
     }
 
-    const {
-      donorName,
-      amount,
-      programId,
-      phone,
-      fundraiserPhone,
-      programTitle,
-      category,
-      slug,
-    } = body;
-
+    // ========================================================
     // 3. VALIDASI NOMINAL
+    // ========================================================
 
-    const cleanAmount = cleanAmountValue(amount);
+    const cleanAmount = cleanAmountValue(
+      body.amount
+    );
 
     if (
-      !cleanAmount ||
-      cleanAmount < 1000
+      cleanAmount < 1000 ||
+      cleanAmount > 10_000_000
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Nominal donasi minimal Rp 1.000.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (cleanAmount > 10_000_000) {
-      return NextResponse.json(
-        {
-          success: false,
           message:
-            "Nominal transaksi QRIS maksimal Rp 10.000.000.",
+            cleanAmount < 1000
+              ? "Nominal donasi minimal Rp 1.000."
+              : "Nominal transaksi QRIS maksimal Rp 10.000.000.",
         },
         { status: 400 }
       );
     }
 
+    // ========================================================
     // 4. NORMALISASI DATA DONATUR
+    // ========================================================
 
     const normalizedDonorName =
-      cleanText(donorName, 150) ||
+      cleanText(body.donorName, 150) ||
       "Hamba Allah";
 
     const normalizedPhone =
-      normalizePhone(phone);
+      normalizePhone(body.phone);
 
     const normalizedEmail = cleanText(
       body.donorEmail || body.email,
@@ -546,23 +679,25 @@ export async function POST(request: Request) {
     );
 
     const normalizedProgramId =
-      cleanText(programId, 200);
+      cleanText(body.programId, 200);
 
     const normalizedProgramTitle =
-      cleanText(programTitle, 200) ||
+      cleanText(body.programTitle, 200) ||
       "Sedekah Umum";
 
     const normalizedCategory =
-      cleanText(category, 100) ||
+      cleanText(body.category, 100) ||
       "Kemanusiaan";
 
     const normalizedFundraiserPhone =
-      normalizePhone(fundraiserPhone);
+      normalizePhone(body.fundraiserPhone);
 
     const normalizedSlug =
-      cleanText(slug, 300);
+      cleanText(body.slug, 300);
 
+    // ========================================================
     // 5. VALIDASI WHATSAPP
+    // ========================================================
 
     const isValidPhoneFormat =
       normalizedPhone.length >= 9 &&
@@ -584,85 +719,43 @@ export async function POST(request: Request) {
       );
     }
 
+    // ========================================================
     // 6. VALIDASI PROGRAM
+    // ========================================================
 
     if (!normalizedProgramId) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Program donasi tidak ditemukan.",
+          message: "Program donasi tidak ditemukan.",
         },
         { status: 400 }
       );
     }
 
+    const program = await validateProgram(
+      sanityClient,
+      normalizedProgramId
+    );
+
+    const finalProgramTitle =
+      program.title || normalizedProgramTitle;
+
+    // ========================================================
     // 7. AMBIL USER SUPABASE
+    // ========================================================
 
-    let userId: string | null = null;
+    const {
+      client: supabase,
+      userId,
+    } = await getSupabaseSessionClient(
+      supabaseUrl,
+      supabaseAnonKey
+    );
 
-    let supabase:
-      | ReturnType<typeof createServerClient>
-      | null = null;
-
-    try {
-      const supabaseUrl =
-        process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-      const supabaseAnonKey =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (
-        supabaseUrl &&
-        supabaseAnonKey
-      ) {
-        const cookieStore = await cookies();
-
-        supabase = createServerClient(
-          supabaseUrl,
-          supabaseAnonKey,
-          {
-            cookies: {
-              getAll() {
-                return cookieStore.getAll();
-              },
-
-              setAll(cookiesToSet) {
-                try {
-                  cookiesToSet.forEach(
-                    ({ name, value, options }) => {
-                      cookieStore.set(
-                        name,
-                        value,
-                        options
-                      );
-                    }
-                  );
-                } catch {
-                  // Tidak mengganggu pembuatan donasi.
-                }
-              },
-            },
-          }
-        );
-
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        if (!error) {
-          userId = user?.id || null;
-        }
-      }
-    } catch (error) {
-      console.warn(
-        "[DONATE] Gagal membaca sesi Supabase:",
-        error
-      );
-    }
-
-    // 8. BUAT TRANSAKSI DI CASAKU
+    // ========================================================
+    // 8. GENERATE QRIS CASAKU
+    // ========================================================
 
     const casaku = await createCasakuTransaction({
       licenseKey,
@@ -671,36 +764,42 @@ export async function POST(request: Request) {
     });
 
     // ========================================================
-    // 9. PISAHKAN ID INTERNAL DAN ID CASAKU
+    // 9. BUAT ID INTERNAL WEBSITE
     // ========================================================
 
-    // orderId:
-    // ID internal yang dibuat oleh website.
+    // orderId adalah ID transaksi milik website.
+    // transactionId adalah ID transaksi asli dari Casaku.
+    // Keduanya tidak boleh disamakan.
 
     const orderId = generateOrderId();
 
-    // transactionId:
-    // ID asli yang diberikan oleh Casaku.
-
     const transactionId = casaku.transactionId;
 
+    const now = new Date().toISOString();
+
     console.log(
-      "[DONATE] IDENTITAS TRANSAKSI:",
+      "[DONATE] TRANSACTION IDENTIFIERS",
       {
         orderId,
         transactionId,
+        sanityProgramId: program.id,
       }
     );
 
-    // 10. SIMPAN TRANSAKSI KE SANITY
+    // ========================================================
+    // 10. SIMPAN KE SANITY
+    // ========================================================
 
-    const now = new Date().toISOString();
+    // PENTING:
+    // amount        = nominal donasi awal.
+    // paymentAmount = totalAmount dari Casaku, termasuk kode unik.
+    //
+    // Settlement membandingkan Casaku amount dengan paymentAmount.
 
     const sanityTransaction =
       await sanityClient.create({
         _type: "donationTransaction",
 
-        // KEDUA ID DISIMPAN TERPISAH.
         orderId,
         transactionId,
 
@@ -708,7 +807,7 @@ export async function POST(request: Request) {
         donorPhone: normalizedPhone,
         donorEmail: normalizedEmail,
 
-        amount: cleanAmount,
+        amount: casaku.originalAmount,
         paymentAmount: casaku.totalAmount,
 
         fundraiserPhone:
@@ -716,7 +815,7 @@ export async function POST(request: Request) {
 
         programName: {
           _type: "reference",
-          _ref: normalizedProgramId,
+          _ref: program.id,
         },
 
         status: "pending",
@@ -724,26 +823,33 @@ export async function POST(request: Request) {
         paymentProvider: "casaku",
         paymentMethod: "qris",
 
+        paymentVerified: false,
+
         qrString: casaku.qrString,
         paymentUrl: "",
 
         expiresAt: casaku.expiredAt,
 
         createdAt: now,
+        updatedAt: now,
 
         campaignSlug: normalizedSlug,
       });
 
     console.log(
-      "[DONATE] Sanity berhasil menyimpan transaksi:",
+      "[DONATE] SANITY CREATED",
       {
         sanityId: sanityTransaction._id,
         orderId,
         transactionId,
+        amount: casaku.originalAmount,
+        paymentAmount: casaku.totalAmount,
       }
     );
 
+    // ========================================================
     // 11. SINKRONKAN KE SUPABASE
+    // ========================================================
 
     if (supabase) {
       try {
@@ -759,43 +865,50 @@ export async function POST(request: Request) {
                 normalizedDonorName,
 
               program_name:
-                normalizedProgramTitle,
+                finalProgramTitle,
 
               category:
                 normalizedCategory,
 
-              amount: cleanAmount,
+              amount:
+                casaku.originalAmount,
 
               status: "pending",
 
               payment_url: "",
 
-              // invoice_id MENGGUNAKAN ORDER ID INTERNAL.
+              // invoice_id selalu menggunakan orderId internal.
               invoice_id: orderId,
             },
           ]);
 
         if (supabaseError) {
           console.error(
-            "[DONATE] Supabase gagal menyimpan:",
-            supabaseError.message
+            "[DONATE] SUPABASE INSERT ERROR",
+            {
+              orderId,
+              message: supabaseError.message,
+              code: supabaseError.code,
+            }
           );
         } else {
           console.log(
-            "[DONATE] Supabase berhasil disinkronkan:",
+            "[DONATE] SUPABASE INSERT SUCCESS",
             orderId
           );
         }
 
       } catch (error) {
         console.error(
-          "[DONATE] Error sinkronisasi Supabase:",
+          "[DONATE] SUPABASE SYNC ERROR",
           error
         );
       }
     }
 
-    // 12. KIRIM RESPONS KE FRONTEND
+    // ========================================================
+    // 12. RESPONS KE FRONTEND
+    // ========================================================
 
     return NextResponse.json(
       {
@@ -803,27 +916,37 @@ export async function POST(request: Request) {
 
         provider: "casaku",
 
-        // ID INTERNAL WEBSITE
+        // ID internal website.
         orderId,
 
-        // ID ASLI DARI CASAKU
+        // ID asli Casaku.
         transactionId,
 
-        amount: cleanAmount,
+        // Nominal donasi awal.
+        amount: casaku.originalAmount,
 
+        // Total pembayaran QRIS.
         totalAmount: casaku.totalAmount,
-
         paymentAmount: casaku.totalAmount,
 
+        // Informasi kode unik.
+        uniqueNominal: casaku.uniqueNominal,
+
+        // QRIS.
         qrString: casaku.qrString,
 
-        status: casaku.status || "pending",
+        // Status pembayaran.
+        status: casaku.status,
 
+        // Masa berlaku.
         expiredAt: casaku.expiredAt,
-
         expiresAt: casaku.expiredAt,
+        expiredInMinutes: casaku.expiredInMinutes,
 
-        expiredInMinutes: CASAKU_EXPIRED_MINUTES,
+        createdAt: casaku.createdAt,
+
+        programId: program.id,
+        programTitle: finalProgramTitle,
       },
       {
         status: 200,
@@ -850,7 +973,12 @@ export async function POST(request: Request) {
         success: false,
         message,
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 }

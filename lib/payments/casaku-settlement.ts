@@ -4,13 +4,11 @@ import { createClient } from "@sanity/client";
 import {
   createClient as createSupabaseClient,
 } from "@supabase/supabase-js";
+import { Casaku } from "casaku";
 
 // ============================================================================
 // CONFIG
 // ============================================================================
-
-const CASAKU_STATUS_URL =
-  "https://api.casaku.id/api/generate/check-status";
 
 const SANITY_TOKEN =
   process.env.SANITY_API_WRITE_TOKEN ||
@@ -19,11 +17,10 @@ const SANITY_TOKEN =
 const projectId =
   process.env.NEXT_PUBLIC_SANITY_PROJECT_ID?.trim();
 
-const dataset =
-  (
-    process.env.NEXT_PUBLIC_SANITY_DATASET ||
-    "production"
-  ).trim();
+const dataset = (
+  process.env.NEXT_PUBLIC_SANITY_DATASET ||
+  "production"
+).trim();
 
 if (!projectId) {
   throw new Error(
@@ -59,10 +56,7 @@ export interface DonationTransaction {
   _id: string;
   _rev?: string;
 
-  // ID internal website.
   orderId?: string;
-
-  // ID asli dari Casaku.
   transactionId?: string;
 
   donorName?: string;
@@ -248,25 +242,15 @@ function formatDonationDate(value: string): string {
 function getGatewayTransactionId(
   transaction: DonationTransaction
 ): string {
-  // WAJIB menggunakan transactionId asli dari Casaku.
-  // Jangan fallback ke orderId karena keduanya berbeda.
-
-  return cleanText(
-    transaction.transactionId,
-    250
-  );
+  // Jangan pernah menggunakan orderId sebagai ID Casaku.
+  return cleanText(transaction.transactionId, 250);
 }
 
 function getLocalOrderIds(
   transaction: DonationTransaction
 ): string[] {
-  // Supabase donations.invoice_id menyimpan orderId internal.
-  // Jangan memasukkan transactionId Casaku ke daftar ini.
-
-  const orderId = cleanText(
-    transaction.orderId,
-    250
-  );
+  // Supabase invoice_id menggunakan ID internal website.
+  const orderId = cleanText(transaction.orderId, 250);
 
   return orderId ? [orderId] : [];
 }
@@ -328,10 +312,7 @@ const DONATION_PROJECTION = `
 export async function getDonationByOrderId(
   orderId: string
 ): Promise<DonationTransaction | null> {
-  const normalizedOrderId = cleanText(
-    orderId,
-    250
-  );
+  const normalizedOrderId = cleanText(orderId, 250);
 
   if (!normalizedOrderId) {
     return null;
@@ -406,7 +387,7 @@ export async function getDonationById(
 }
 
 // ============================================================================
-// CHECK CASAKU TRANSACTION
+// CHECK CASAKU TRANSACTION - OFFICIAL SDK
 // ============================================================================
 
 export async function checkCasakuTransaction(
@@ -421,10 +402,7 @@ export async function checkCasakuTransaction(
     );
   }
 
-  const normalizedId = cleanText(
-    transactionId,
-    250
-  );
+  const normalizedId = cleanText(transactionId, 250);
 
   if (!normalizedId) {
     throw new Error(
@@ -432,170 +410,124 @@ export async function checkCasakuTransaction(
     );
   }
 
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 15000);
-
   try {
-    const response = await fetch(
-      CASAKU_STATUS_URL,
-      {
-        method: "POST",
+    const casaku = new Casaku({
+      licenseKey,
+    });
 
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "x-license-key": licenseKey,
-        },
-
-        body: JSON.stringify({
-          transactionId: normalizedId,
-        }),
-
-        cache: "no-store",
-        signal: controller.signal,
-      }
+    // SDK resmi Casaku.
+    const response = await casaku.checkStatus(
+      normalizedId
     );
 
-    const raw = await response.text();
-
-    let json: any = null;
-
-    try {
-      json = raw ? JSON.parse(raw) : null;
-    } catch {
+    // response.status adalah HTTP/API status.
+    if (response.status !== 200) {
       throw new Error(
-        `Respons Casaku bukan JSON yang valid: ${raw.slice(0, 300)}`
+        `Casaku mengembalikan HTTP status ${response.status}.`
       );
     }
 
-    if (!response.ok || !json) {
+    // Status pembayaran berada di response.data.status.
+    const data = response.data;
+
+    if (!data || typeof data !== "object") {
       throw new Error(
-        cleanText(json?.message) ||
-        `Casaku HTTP ${response.status}: ${raw.slice(0, 300)}`
+        "Data transaksi tidak ditemukan pada respons Casaku."
       );
     }
 
-    if (json.success === false) {
-      throw new Error(
-        cleanText(json.message) ||
-        "Casaku gagal memeriksa transaksi."
-      );
-    }
-
-    // Mendukung respons di dalam data maupun respons langsung.
-    const data =
-      json?.data &&
-      typeof json.data === "object"
-        ? json.data
-        : json;
-
-    // ID yang dikembalikan gateway.
-    const returnedTransactionId = firstText(
+    const returnedTransactionId = cleanText(
       data.transactionId,
-      data.transaction_id,
-      data.trx_id,
-      data.order_id,
-      data.reference_id,
-      data.reference,
-      data.id
+      250
     );
 
-    // Validasi agar tidak menerima respons transaksi lain.
+    if (!returnedTransactionId) {
+      throw new Error(
+        "Casaku tidak mengembalikan transactionId."
+      );
+    }
+
+    if (returnedTransactionId !== normalizedId) {
+      throw new Error(
+        `ID transaksi tidak cocok. Diminta: ${normalizedId}, diterima: ${returnedTransactionId}.`
+      );
+    }
+
+    const rawStatus = data.status;
+    const status = normalizeCasakuStatus(rawStatus);
+
+    // CheckStatus SDK mengembalikan nominal pada data.amount.
+    const amount = Number(data.amount);
+
     if (
-      returnedTransactionId &&
-      returnedTransactionId !== normalizedId
+      !Number.isFinite(amount) ||
+      amount < 0
     ) {
       throw new Error(
-        `ID transaksi Casaku tidak cocok. Diminta: ${normalizedId}, diterima: ${returnedTransactionId}.`
+        "Nominal pembayaran dari Casaku tidak valid."
       );
     }
 
-    const rawStatus = firstValue(
-      data.status,
-      data.paymentStatus,
-      data.payment_status,
-      data.transactionStatus,
-      data.transaction_status,
-      json.status
-    );
+    if (status === "paid" && amount <= 0) {
+      throw new Error(
+        "Casaku menyatakan paid tetapi nominal pembayaran tidak valid."
+      );
+    }
 
-    const returnedAmount = safeNumber(
-      firstValue(
-        data.totalAmount,
-        data.total_amount,
-        data.paidAmount,
-        data.paid_amount,
-        data.amount,
-        json.totalAmount,
-        json.amount
-      )
-    );
-
-    const paidAt = firstText(
-      data.paidAt,
-      data.paid_at,
-      data.settlementTime,
-      data.settlement_time,
-      data.completedAt,
-      data.completed_at
-    );
-
-    const expiredAt = firstText(
-      data.expiredAt,
-      data.expired_at,
-      data.expiresAt,
-      data.expires_at
-    );
+    // Field tambahan dibaca secara defensif karena tidak selalu
+    // tersedia pada respons checkStatus.
+    const optionalData = data as typeof data & {
+      paidAt?: string;
+      paid_at?: string;
+      packageName?: string;
+      appName?: string;
+    };
 
     const result: CasakuCheckResult = {
-      status: normalizeCasakuStatus(rawStatus),
-
-      transactionId: normalizedId,
-
-      amount: returnedAmount,
-
-      paidAt: paidAt || null,
-
-      expiredAt: expiredAt || null,
-
+      status,
+      transactionId: returnedTransactionId,
+      amount,
+      paidAt:
+        firstText(
+          optionalData.paidAt,
+          optionalData.paid_at
+        ) || null,
+      expiredAt:
+        firstText(data.expiredAt) || null,
       packageName: firstText(
-        data.packageName,
-        data.package_name
+        optionalData.packageName
       ),
-
       appName: firstText(
-        data.appName,
-        data.app_name
+        optionalData.appName
       ),
     };
 
-    console.log("[CASAKU STATUS]", {
-      transactionId: normalizedId,
-      gatewayTransactionId: returnedTransactionId,
-      rawStatus,
+    console.log("[CASAKU SDK CHECK]", {
+      requestedTransactionId: normalizedId,
+      returnedTransactionId,
+      httpStatus: response.status,
+      gatewayStatus: rawStatus,
       normalizedStatus: result.status,
       amount: result.amount,
+      expiredAt: result.expiredAt,
     });
 
     return result;
 
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.name === "AbortError"
-    ) {
-      throw new Error(
-        "Timeout ketika memeriksa status pembayaran Casaku."
-      );
-    }
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error);
 
-    throw error;
+    console.error("[CASAKU SDK ERROR]", {
+      transactionId: normalizedId,
+      message,
+    });
 
-  } finally {
-    clearTimeout(timeout);
+    throw new Error(
+      `Gagal memeriksa transaksi Casaku: ${message}`
+    );
   }
 }
 
@@ -646,9 +578,7 @@ async function syncSupabaseStatus(
 
     const { error } = await supabase
       .from("donations")
-      .update({
-        status,
-      })
+      .update({ status })
       .in("invoice_id", orderIds);
 
     if (error) {
@@ -659,10 +589,7 @@ async function syncSupabaseStatus(
     } else {
       console.log(
         "[CASAKU] Supabase status diperbarui:",
-        {
-          orderIds,
-          status,
-        }
+        { orderIds, status }
       );
     }
 
@@ -682,9 +609,7 @@ async function markTransactionSuccess(
   transaction: DonationTransaction,
   result: CasakuCheckResult
 ): Promise<void> {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -692,33 +617,47 @@ async function markTransactionSuccess(
     );
   }
 
-  const currentStatus = normalizeLocalStatus(
-    fresh.status
-  );
+  const storedTransactionId =
+    getGatewayTransactionId(fresh);
 
+  if (
+    !storedTransactionId ||
+    storedTransactionId !== result.transactionId
+  ) {
+    throw new Error(
+      "ID transaksi Casaku tidak cocok dengan data Sanity."
+    );
+  }
+
+  if (result.status !== "paid") {
+    throw new Error(
+      "Transaksi belum berstatus paid di Casaku."
+    );
+  }
+
+  // paymentAmount seharusnya berisi totalAmount Casaku,
+  // termasuk kode unik apabila digunakan.
   const expectedAmount = safeNumber(
     fresh.paymentAmount ?? fresh.amount
   );
 
-  // Verifikasi nominal sebelum mengesahkan pembayaran.
-  if (
-    result.amount > 0 &&
-    expectedAmount > 0 &&
-    result.amount !== expectedAmount
-  ) {
+  const actualAmount = safeNumber(result.amount);
+
+  if (expectedAmount <= 0) {
     throw new Error(
-      `Nominal pembayaran tidak cocok. Seharusnya Rp${expectedAmount}, Casaku melaporkan Rp${result.amount}.`
+      "Nominal pembayaran yang diharapkan tidak valid."
     );
   }
 
-  const paidAmount =
-    result.amount > 0
-      ? result.amount
-      : expectedAmount;
-
-  if (paidAmount <= 0) {
+  if (actualAmount <= 0) {
     throw new Error(
-      "Nominal pembayaran tidak valid."
+      "Casaku tidak memberikan nominal pembayaran yang valid."
+    );
+  }
+
+  if (actualAmount !== expectedAmount) {
+    throw new Error(
+      `Nominal pembayaran tidak cocok. Database: Rp${expectedAmount.toLocaleString("id-ID")}, Casaku: Rp${actualAmount.toLocaleString("id-ID")}.`
     );
   }
 
@@ -727,29 +666,23 @@ async function markTransactionSuccess(
     fresh.paidAt ||
     new Date().toISOString();
 
-  if (!isSuccessfulStatus(currentStatus)) {
+  if (!isSuccessfulStatus(fresh.status)) {
     const patch: Record<string, unknown> = {
       status: "success",
-
       paymentProvider: "casaku",
       paymentMethod: "qris",
-
       paymentVerified: true,
-
       paidAt,
-      paidAmount,
-
+      paidAmount: actualAmount,
       updatedAt: new Date().toISOString(),
     };
 
     if (result.packageName) {
-      patch.paymentPackageName =
-        result.packageName;
+      patch.paymentPackageName = result.packageName;
     }
 
     if (result.appName) {
-      patch.paymentAppName =
-        result.appName;
+      patch.paymentAppName = result.appName;
     }
 
     let sanityPatch = paymentSanityClient
@@ -763,12 +696,8 @@ async function markTransactionSuccess(
 
     try {
       await sanityPatch.commit();
-
     } catch (error) {
-      // Periksa apakah proses lain sudah menyelesaikan transaksi.
-      const after = await getDonationById(
-        fresh._id
-      );
+      const after = await getDonationById(fresh._id);
 
       if (
         !after ||
@@ -779,23 +708,27 @@ async function markTransactionSuccess(
     }
   }
 
-  const updated = await getDonationById(
-    fresh._id
-  );
+  const updated = await getDonationById(fresh._id);
 
   if (
     !updated ||
-    !isSuccessfulStatus(updated.status)
+    !isSuccessfulStatus(updated.status) ||
+    updated.paymentVerified !== true
   ) {
     throw new Error(
-      "Gagal memastikan status pembayaran di Sanity."
+      "Gagal memastikan pembayaran sukses dan terverifikasi di Sanity."
     );
   }
 
-  await syncSupabaseStatus(
-    updated,
-    "success"
-  );
+  await syncSupabaseStatus(updated, "success");
+
+  console.log("[CASAKU PAYMENT SUCCESS]", {
+    sanityId: updated._id,
+    orderId: updated.orderId,
+    transactionId: updated.transactionId,
+    amount: actualAmount,
+    paidAt,
+  });
 }
 
 // ============================================================================
@@ -806,9 +739,7 @@ async function markTransactionFailed(
   transaction: DonationTransaction,
   result: CasakuCheckResult
 ): Promise<void> {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -816,7 +747,6 @@ async function markTransactionFailed(
     );
   }
 
-  // Jangan menurunkan status transaksi yang sudah lunas.
   if (isSuccessfulStatus(fresh.status)) {
     console.warn(
       "[CASAKU] Status gagal diabaikan karena transaksi sudah sukses:",
@@ -828,10 +758,8 @@ async function markTransactionFailed(
 
   const patch: Record<string, unknown> = {
     status: "failed",
-
     paymentProvider: "casaku",
     paymentMethod: "qris",
-
     updatedAt: new Date().toISOString(),
   };
 
@@ -850,11 +778,8 @@ async function markTransactionFailed(
 
   try {
     await sanityPatch.commit();
-
   } catch (error) {
-    const after = await getDonationById(
-      fresh._id
-    );
+    const after = await getDonationById(fresh._id);
 
     if (
       after &&
@@ -866,18 +791,13 @@ async function markTransactionFailed(
     throw error;
   }
 
-  const updated = await getDonationById(
-    fresh._id
-  );
+  const updated = await getDonationById(fresh._id);
 
   if (
     updated &&
     !isSuccessfulStatus(updated.status)
   ) {
-    await syncSupabaseStatus(
-      updated,
-      "failed"
-    );
+    await syncSupabaseStatus(updated, "failed");
   }
 }
 
@@ -888,9 +808,7 @@ async function markTransactionFailed(
 async function creditProgram(
   transaction: DonationTransaction
 ): Promise<CreditResult> {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -921,7 +839,6 @@ async function creditProgram(
     };
   }
 
-  // Periksa apakah donor sudah pernah tercatat.
   const existingDonor =
     await paymentSanityClient.fetch<boolean>(
       `count(
@@ -949,13 +866,11 @@ async function creditProgram(
       }
     );
 
-  // Jika sudah tercatat, cukup tandai transaksi.
   if (existingDonor) {
     let markerPatch = paymentSanityClient
       .patch(fresh._id)
       .set({
-        programCreditedAt:
-          new Date().toISOString(),
+        programCreditedAt: new Date().toISOString(),
       });
 
     if (fresh._rev) {
@@ -965,11 +880,8 @@ async function creditProgram(
 
     try {
       await markerPatch.commit();
-
     } catch {
-      const after = await getDonationById(
-        fresh._id
-      );
+      const after = await getDonationById(fresh._id);
 
       if (!after?.programCreditedAt) {
         throw new Error(
@@ -995,8 +907,7 @@ async function creditProgram(
     amount,
 
     date: formatDonationDate(
-      fresh.paidAt ||
-      new Date().toISOString()
+      fresh.paidAt || new Date().toISOString()
     ),
 
     orderId: fresh.orderId,
@@ -1009,7 +920,6 @@ async function creditProgram(
     );
   }
 
-  // Program dan marker transaksi disimpan dalam satu transaksi Sanity.
   try {
     await paymentSanityClient
       .transaction()
@@ -1032,8 +942,7 @@ async function creditProgram(
         patch
           .ifRevisionId(fresh._rev!)
           .set({
-            programCreditedAt:
-              new Date().toISOString(),
+            programCreditedAt: new Date().toISOString(),
           })
       )
 
@@ -1045,9 +954,7 @@ async function creditProgram(
     };
 
   } catch (error) {
-    const after = await getDonationById(
-      fresh._id
-    );
+    const after = await getDonationById(fresh._id);
 
     if (after?.programCreditedAt) {
       return {
@@ -1067,9 +974,7 @@ async function creditProgram(
 async function creditFundraiser(
   transaction: DonationTransaction
 ): Promise<CreditResult> {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -1166,9 +1071,7 @@ async function creditFundraiser(
     };
   }
 
-  const donationAmount = safeNumber(
-    fresh.amount
-  );
+  const donationAmount = safeNumber(fresh.amount);
 
   if (donationAmount <= 0) {
     return {
@@ -1223,8 +1126,7 @@ async function creditFundraiser(
         patch
           .ifRevisionId(fresh._rev!)
           .set({
-            fundraiserCreditedAt:
-              new Date().toISOString(),
+            fundraiserCreditedAt: new Date().toISOString(),
           })
       )
 
@@ -1237,9 +1139,7 @@ async function creditFundraiser(
     };
 
   } catch (error) {
-    const after = await getDonationById(
-      fresh._id
-    );
+    const after = await getDonationById(fresh._id);
 
     if (after?.fundraiserCreditedAt) {
       return {
@@ -1259,9 +1159,7 @@ async function creditFundraiser(
 export async function ensureDonationCredits(
   transaction: DonationTransaction
 ) {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -1288,7 +1186,6 @@ export async function ensureDonationCredits(
 
   try {
     program = await creditProgram(fresh);
-
   } catch (error) {
     console.error(
       "[CREDIT PROGRAM ERROR]",
@@ -1303,9 +1200,7 @@ export async function ensureDonationCredits(
   }
 
   try {
-    const refreshed = await getDonationById(
-      fresh._id
-    );
+    const refreshed = await getDonationById(fresh._id);
 
     if (!refreshed) {
       throw new Error(
@@ -1313,9 +1208,7 @@ export async function ensureDonationCredits(
       );
     }
 
-    fundraiser = await creditFundraiser(
-      refreshed
-    );
+    fundraiser = await creditFundraiser(refreshed);
 
   } catch (error) {
     console.error(
@@ -1350,9 +1243,7 @@ export async function ensureDonationCredits(
 export async function reconcileDonation(
   transaction: DonationTransaction
 ) {
-  const fresh = await getDonationById(
-    transaction._id
-  );
+  const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error(
@@ -1360,31 +1251,20 @@ export async function reconcileDonation(
     );
   }
 
-  // ========================================================
   // SUDAH LUNAS
-  // ========================================================
-
   if (isSuccessfulStatus(fresh.status)) {
-    const credits = await ensureDonationCredits(
-      fresh
-    );
+    const credits = await ensureDonationCredits(fresh);
 
     return {
       status: "success",
       casakuStatus: "paid" as CasakuStatus,
       credits,
-      transaction: await getDonationById(
-        fresh._id
-      ),
+      transaction: await getDonationById(fresh._id),
     };
   }
 
-  // ========================================================
-  // AMBIL ID ASLI CASAKU
-  // ========================================================
-
-  const transactionId =
-    getGatewayTransactionId(fresh);
+  // ID ASLI CASAKU
+  const transactionId = getGatewayTransactionId(fresh);
 
   if (!transactionId) {
     throw new Error(
@@ -1392,23 +1272,12 @@ export async function reconcileDonation(
     );
   }
 
-  // ========================================================
-  // CEK STATUS LANGSUNG KE CASAKU
-  // ========================================================
+  // CEK LANGSUNG KE CASAKU
+  const casaku = await checkCasakuTransaction(transactionId);
 
-  const casaku = await checkCasakuTransaction(
-    transactionId
-  );
-
-  // ========================================================
   // PAID
-  // ========================================================
-
   if (casaku.status === "paid") {
-    await markTransactionSuccess(
-      fresh,
-      casaku
-    );
+    await markTransactionSuccess(fresh, casaku);
 
     const paidTransaction =
       await getDonationById(fresh._id);
@@ -1427,38 +1296,21 @@ export async function reconcileDonation(
       status: "success",
       casakuStatus: casaku.status,
       credits,
-      transaction: await getDonationById(
-        fresh._id
-      ),
+      transaction: await getDonationById(fresh._id),
     };
   }
 
-  // ========================================================
   // EXPIRED / CANCEL
-  // ========================================================
-
   if (
     casaku.status === "expired" ||
     casaku.status === "cancel"
   ) {
-    await markTransactionFailed(
-      fresh,
-      casaku
-    );
+    await markTransactionFailed(fresh, casaku);
 
-    const after = await getDonationById(
-      fresh._id
-    );
+    const after = await getDonationById(fresh._id);
 
-    // Jika sudah sukses oleh proses lain,
-    // status sukses harus tetap dipertahankan.
-    if (
-      after &&
-      isSuccessfulStatus(after.status)
-    ) {
-      const credits = await ensureDonationCredits(
-        after
-      );
+    if (after && isSuccessfulStatus(after.status)) {
+      const credits = await ensureDonationCredits(after);
 
       return {
         status: "success",
@@ -1476,10 +1328,7 @@ export async function reconcileDonation(
     };
   }
 
-  // ========================================================
   // PENDING
-  // ========================================================
-
   return {
     status: "pending",
     casakuStatus: "pending" as CasakuStatus,
