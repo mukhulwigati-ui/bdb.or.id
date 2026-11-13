@@ -2,7 +2,13 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@sanity/client";
-import { checkCasakuTransaction, ensureDonationCredits, getDonationByOrderId, getDonationByTransactionId } from "@/lib/payments/casaku-settlement";
+import { 
+  checkCasakuTransaction, 
+  ensureDonationCredits, 
+  getDonationByOrderId, 
+  getDonationByTransactionId, 
+  getDonationById 
+} from "@/lib/payments/casaku-settlement";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
