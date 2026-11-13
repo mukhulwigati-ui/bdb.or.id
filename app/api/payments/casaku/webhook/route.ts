@@ -341,60 +341,36 @@ async function creditProgram({
       transaction.orderId,
   };
 
-  let builder =
-    sanityClient.transaction();
-
-  const programPatch =
-    sanityClient
-      .patch(
-        transaction.programId
-      )
-      .setIfMissing({
-        collectedAmount: 0,
-        collectedRaw: 0,
-        donors: [],
-      })
-      .inc({
-        collectedAmount:
-          donationAmount,
-
-        collectedRaw:
-          donationAmount,
-      })
-      .append(
-        "donors",
-        [donor]
-      );
-
-  const transactionPatch =
-    sanityClient
-      .patch(
-        transaction._id
-      )
-      .set({
-        programCreditedAt:
-          new Date().toISOString(),
-      });
-
-  if (
-    transaction._rev
-  ) {
-    transactionPatch.ifRevisionId(
-      transaction._rev
-    );
-  }
-
-  builder =
-    builder
-      .patch(
-        programPatch
-      )
-      .patch(
-        transactionPatch
-      );
-
   try {
-    await builder.commit();
+    let tx = sanityClient.transaction();
+
+    // Patch Program
+    tx = tx.patch(transaction.programId, (patch) =>
+      patch
+        .setIfMissing({
+          collectedAmount: 0,
+          collectedRaw: 0,
+          donors: [],
+        })
+        .inc({
+          collectedAmount: donationAmount,
+          collectedRaw: donationAmount,
+        })
+        .append("donors", [donor])
+    );
+
+    // Patch Transaction
+    tx = tx.patch(transaction._id, (patch) => {
+      let next = patch.set({
+        programCreditedAt: new Date().toISOString(),
+      });
+      if (transaction._rev) {
+        next = next.ifRevisionId(transaction._rev);
+      }
+      return next;
+    });
+
+    await tx.commit();
 
     console.log(
       "✅ Program berhasil dikredit:",
@@ -561,51 +537,6 @@ async function creditFundraiser({
           100)
     );
 
-  let builder =
-    sanityClient.transaction();
-
-  const fundraiserPatch =
-    sanityClient
-      .patch(
-        fundraiser._id
-      )
-      .setIfMissing({
-        totalDanaDihimpun:
-          0,
-        totalTransaksiSukses:
-          0,
-        totalFee:
-          0,
-        sisaSaldoFee:
-          0,
-        feePaid:
-          0,
-      })
-      .inc({
-        totalDanaDihimpun:
-          donationAmount,
-        totalTransaksiSukses:
-          1,
-        totalFee:
-          feeAmount,
-        sisaSaldoFee:
-          feeAmount,
-      })
-      .set({
-        updatedAt:
-          new Date().toISOString(),
-      });
-
-  const transactionPatch =
-    sanityClient
-      .patch(
-        transaction._id
-      )
-      .set({
-        fundraiserCreditedAt:
-          new Date().toISOString(),
-      });
-
   const freshTransaction =
     await sanityClient.fetch<{
       _rev?: string;
@@ -635,25 +566,40 @@ async function creditFundraiser({
     };
   }
 
-  if (
-    freshTransaction?._rev
-  ) {
-    transactionPatch.ifRevisionId(
-      freshTransaction._rev
-    );
-  }
-
-  builder =
-    builder
-      .patch(
-        fundraiserPatch
-      )
-      .patch(
-        transactionPatch
-      );
-
   try {
-    await builder.commit();
+    let tx = sanityClient.transaction();
+
+    tx = tx.patch(fundraiser._id, (patch) =>
+      patch
+        .setIfMissing({
+          totalDanaDihimpun: 0,
+          totalTransaksiSukses: 0,
+          totalFee: 0,
+          sisaSaldoFee: 0,
+          feePaid: 0,
+        })
+        .inc({
+          totalDanaDihimpun: donationAmount,
+          totalTransaksiSukses: 1,
+          totalFee: feeAmount,
+          sisaSaldoFee: feeAmount,
+        })
+        .set({
+          updatedAt: new Date().toISOString(),
+        })
+    );
+
+    tx = tx.patch(transaction._id, (patch) => {
+      let next = patch.set({
+        fundraiserCreditedAt: new Date().toISOString(),
+      });
+      if (freshTransaction?._rev) {
+        next = next.ifRevisionId(freshTransaction._rev);
+      }
+      return next;
+    });
+
+    await tx.commit();
 
     return {
       credited: true,
@@ -892,10 +838,6 @@ export async function POST(
         }
       );
     }
-
-    // =========================================================================
-    // 7. AMBIL TRANSAKSI (Mendukung pencocokan transactionId atau orderId dengan prefix BDB)
-    // =========================================================================
 
     let transaction =
       await sanityClient.fetch<SanityDonationTransaction | null>(
