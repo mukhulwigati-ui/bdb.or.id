@@ -9,22 +9,22 @@ import { Loader2, CheckCircle2, Clock } from 'lucide-react';
 function DonationSuccessContent() {
   const searchParams = useSearchParams();
   
-  // Menangkap parameter order id atau transaction status dari Midtrans Snap redirect
-  const orderId = searchParams.get('order_id') || searchParams.get('orderId') || searchParams.get('id') || '';
-  const transactionStatus = searchParams.get('transaction_status') || '';
+  // Menangkap parameter order id atau transaction id dari URL redirect/callback Casaku
+  const orderId = searchParams.get('order_id') || searchParams.get('orderId') || searchParams.get('id') || searchParams.get('transactionId') || '';
+  const transactionStatus = searchParams.get('status') || '';
 
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'failed'>('loading');
 
   useEffect(() => {
     async function verifyTransaction() {
-      // JIKA TIDAK ADA ORDER ID SAMA SEKALI (Artinya user masuk manual atau habis tutup popup)
+      // JIKA TIDAK ADA ORDER ID SAMA SEKALI
       if (!orderId) {
         setStatus('pending');
         return;
       }
 
-      // Jika Midtrans mengirimkan status langsung via URL redirect callback
-      if (transactionStatus === 'settlement' || transactionStatus === 'success' || transactionStatus === 'capture') {
+      // Jika URL mengirimkan status langsung
+      if (transactionStatus === 'success' || transactionStatus === 'paid') {
         setStatus('success');
         return;
       } else if (transactionStatus === 'pending') {
@@ -33,18 +33,17 @@ function DonationSuccessContent() {
       }
 
       try {
-        // Cek status real-time ke backend Anda jika ada
+        // Cek status real-time ke backend Anda
         const res = await fetch(`/api/donation/status?orderId=${orderId}`, { cache: 'no-store' });
         const json = await res.json();
 
         if (json.success && json.transaction) {
-          if (['success', 'paid', 'settlement', 'capture'].includes(json.transaction.status)) {
+          if (['success', 'paid', 'settlement'].includes(json.transaction.status)) {
             setStatus('success');
           } else {
             setStatus('pending');
           }
         } else {
-          // Jika tidak ditemukan di DB, jangan langsung vonis sukses jika tidak ada parameter status valid
           setStatus('pending');
         }
       } catch (err) {
@@ -89,17 +88,17 @@ function DonationSuccessContent() {
         
         <p className="text-xs sm:text-sm text-slate-700 mt-3 mb-5 leading-relaxed font-normal">
           {status === 'success' ? (
-            <>Infak/Sedekah Anda telah berhasil diproses melalui sistem pembayaran resmi <span className="font-semibold text-slate-900">islami.or.id</span>. Terima kasih banyak atas kepercayaan Anda menyalurkan dana kebajikan melalui kami, semoga menjadi aliran amal jariyah yang berlipat ganda. Aamiin.</>
+            <>Infak/Sedekah Anda telah berhasil diproses melalui sistem pembayaran QRIS resmi. Terima kasih banyak atas kepercayaan Anda menyalurkan dana kebajikan melalui kami, semoga menjadi aliran amal jariyah yang berlipat ganda. Aamiin.</>
           ) : (
-            <>Transaksi dengan nomor invoice di bawah ini belum menyelesaikan proses pembayaran atau dibatalkan. Silakan cek kembali atau buat donasi baru jika diperlukan.</>
+            <>Transaksi dengan nomor referensi di bawah ini belum menyelesaikan proses pembayaran. Silakan lakukan scan QRIS atau buat donasi baru jika masa berlaku telah habis.</>
           )}
         </p>
 
         {/* Kotak Status Detail Transaksi */}
         <div className="bg-slate-50 border border-slate-200 p-4 space-y-2.5 text-left rounded-xl">
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium">
-            <span className="text-slate-400 uppercase tracking-wider">No. Invoice</span>
-            <span className="text-slate-900 font-bold font-mono">{orderId || '-'}</span>
+            <span className="text-slate-400 uppercase tracking-wider">No. Transaksi</span>
+            <span className="text-slate-900 font-bold font-mono text-[11px] sm:text-xs truncate max-w-[200px]">{orderId || '-'}</span>
           </div>
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Status Dana</span>
@@ -116,7 +115,7 @@ function DonationSuccessContent() {
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Metode Pembayaran</span>
             <span className="text-slate-800 font-bold uppercase tracking-wider text-xs">
-              Midtrans Snap Resmi
+              QRIS Casaku
             </span>
           </div>
         </div>
