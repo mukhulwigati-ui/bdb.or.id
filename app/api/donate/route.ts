@@ -25,7 +25,7 @@ const CASAKU_PREFIX = "BDB";
 const serverClient = createClient({
   projectId:
     process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
-    "xqggeww8",
+    "ks29gg6v",
 
   dataset:
     process.env.NEXT_PUBLIC_SANITY_DATASET ||
