@@ -2,7 +2,6 @@
 
 import type { Metadata } from "next";
 import { createClient } from "@sanity/client";
-import { notFound } from "next/navigation";
 
 import CampaignDetailClient from "@/components/CampaignDetailClient";
 
@@ -141,43 +140,26 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// FETCH CAMPAIGN DATA (DIOPTIMALKAN DENGAN LOWERCASE & AMAN DARI ERROR)
+// GET CAMPAIGN METADATA
 // ============================================================================
 
-async function getCampaignData(slug: string) {
+async function getCampaignMetadata(slug: string): Promise<CampaignMetadataData | null> {
   try {
-    // Kita gunakan lower() agar pencarian slug tidak case-sensitive 
-    // dan mencakup berbagai variasi tipe dokumen di Sanity.
-    const cleanSlug = slug.trim().toLowerCase();
-
     const query = `
       *[
         (
           _type == "program" ||
-          _type == "campaign" ||
-          _type == "donationProgram"
+          _type == "campaign"
         ) &&
         (
-          lower(slug.current) == $cleanSlug ||
+          slug.current == $slug ||
           _id == $slug
         )
       ][0] {
-        _id,
-        "id": _id,
         title,
-        "slug": slug.current,
-        category,
         description,
         excerpt,
-        collectedAmount,
-        targetAmount,
-        "daysLeft": coalesce(
-          round((datetime(endDate) - datetime(now())) / 86400),
-          30
-        ),
-        donors,
-        reports,
-        "image": coalesce(
+        "imageUrl": coalesce(
           mainImage.asset->url,
           image.asset->url,
           thumbnail.asset->url,
@@ -186,14 +168,15 @@ async function getCampaignData(slug: string) {
       }
     `;
 
-    const campaign = await sanityMetaClient.fetch(
+    const campaign = await sanityMetaClient.fetch<CampaignMetadataData | null>(
       query,
-      { slug, cleanSlug },
+      { slug },
       { cache: "no-store" }
     );
+
     return campaign || null;
   } catch (error) {
-    console.error("[CAMPAIGN DATA] Gagal mengambil data program dari Sanity:", error);
+    console.error("[CAMPAIGN METADATA] Gagal mengambil metadata dari Sanity:", error);
     return null;
   }
 }
@@ -208,7 +191,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const encodedSlug = encodeURIComponent(decodedSlug);
   const campaignUrl = `${SITE_URL}/campaign/${encodedSlug}`;
 
-  const campaign = await getCampaignData(decodedSlug);
+  const campaign = await getCampaignMetadata(decodedSlug);
 
   let title = DEFAULT_TITLE;
   let description = DEFAULT_DESCRIPTION;
@@ -220,7 +203,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     }
     const rawDescription = campaign.excerpt || campaign.description;
     description = createMetaDescription(rawDescription, `Dukung program ${title} bersama bdb.or.id.`);
-    image = buildSocialImageUrl(campaign.image);
+    image = buildSocialImageUrl(campaign.imageUrl);
   }
 
   return {
@@ -266,17 +249,11 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   const { ref } = await searchParams;
 
   const decodedSlug = decodeURIComponent(slug).trim();
-  const programData = await getCampaignData(decodedSlug);
-
-  if (!programData) {
-    notFound();
-  }
 
   return (
     <CampaignDetailClient
-      slug={slug}
+      slug={decodedSlug}
       referral={ref ?? null}
-      program={programData}
     />
   );
 }
