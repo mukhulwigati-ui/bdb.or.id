@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
           });
@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Penting: Jangan hapus baris getUser() ini. Ini berfungsi menyegarkan sesi auth.
+  // Refresh sesi auth Supabase
   const { data: { user } } = await supabase.auth.getUser();
 
   // Proteksi rute: Jika belum login dan mengakses /akun atau /donasi-saya, arahkan ke /login
@@ -45,12 +45,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public assets (svg, png, jpg, etc)
+     * Lewati file-file internal Next.js, file statis, gambar, dan route API publik (seperti /api/donate)
+     * agar middleware tidak terpanggil secara tidak perlu yang memicu timeout.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/donate|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)).*)',
   ],
 };
