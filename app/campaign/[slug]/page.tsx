@@ -134,30 +134,30 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// FETCH CAMPAIGN DATA (CASE-INSENSITIVE & FLEXIBLE)
+// FETCH CAMPAIGN DATA (SUPER FLEKSIBEL: SLUG, ID, ATAU JUDUL)
 // ============================================================================
 
 async function getCampaignData(slug: string) {
   try {
     const cleanSlug = decodeURIComponent(slug).trim().toLowerCase();
+    // Ubah "peduli-palestina" menjadi "peduli palestina" sebagai cadangan pencocokan judul
+    const titleFromSlug = cleanSlug.replace(/-/g, " ");
 
-    // Query fleksibel: mencocokkan slug huruf kecil/besar atau ID
     const query = `
       *[
-        (
-          _type == "program" ||
-          _type == "campaign" ||
-          _type == "donationProgram"
-        ) &&
+        !(_type in ["news", "category", "heroBanner", "fundraiser", "donationTransaction", "sanity.imageAsset"]) &&
         (
           lower(slug.current) == $cleanSlug ||
-          _id == $slug
+          lower(slug) == $cleanSlug ||
+          _id == $slug ||
+          lower(title) == $titleFromSlug ||
+          title match $titleFromSlug
         )
       ][0] {
         _id,
         "id": _id,
         title,
-        "slug": slug.current,
+        "slug": coalesce(slug.current, slug, $cleanSlug),
         category,
         description,
         excerpt,
@@ -180,7 +180,7 @@ async function getCampaignData(slug: string) {
 
     const campaign = await sanityMetaClient.fetch(
       query,
-      { slug, cleanSlug },
+      { slug, cleanSlug, titleFromSlug },
       { cache: "no-store" }
     );
     return campaign || null;
