@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 
 function getSanityClient() {
   return createClient({
-    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "xqggeww8",
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "ks29gg6v",
     dataset: (process.env.NEXT_PUBLIC_SANITY_DATASET || "production").trim(),
     apiVersion: "2026-08-31",
     useCdn: false,

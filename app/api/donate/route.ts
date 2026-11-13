@@ -16,14 +16,14 @@ const CASAKU_API_BASE_URL = "https://api.casaku.id";
 const CASAKU_GENERATE_ENDPOINT = `${CASAKU_API_BASE_URL}/api/generate/v2/qris`;
 
 const CASAKU_EXPIRED_MINUTES = 15;
-const CASAKU_PREFIX = "ISLAMI";
+const CASAKU_PREFIX = "BDB";
 
 // ============================================================================
 // SANITY CLIENT
 // ============================================================================
 
 const serverClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "xqggeww8",
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "ks29gg6v",
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
   useCdn: false,
   apiVersion: "2024-01-01",

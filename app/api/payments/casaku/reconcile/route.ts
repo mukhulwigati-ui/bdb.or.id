@@ -130,7 +130,7 @@ export async function GET(
 
             ||
 
-            transactionId match "ISLAMI-*"
+            transactionId match "BDB-*"
 
             ||
 
