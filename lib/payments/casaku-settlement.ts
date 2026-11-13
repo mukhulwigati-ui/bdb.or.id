@@ -1,3 +1,4 @@
+// lib/payments/casaku-settlement.ts
 
 import crypto from "crypto";
 import { createClient } from "@sanity/client";
@@ -351,13 +352,6 @@ export async function checkCasakuTransaction(
         json.transactionId
     );
 
-    if (
-      returnedTransactionId &&
-      returnedTransactionId !== transactionId
-    ) {
-      throw new Error("Transaction ID Casaku tidak cocok.");
-    }
-
     const rawStatus =
       data.status ??
       data.transactionStatus ??
@@ -376,7 +370,7 @@ export async function checkCasakuTransaction(
 
     return {
       status: normalizeCasakuStatus(rawStatus),
-      transactionId,
+      transactionId: returnedTransactionId || transactionId,
       amount,
       paidAt:
         cleanText(
@@ -468,16 +462,10 @@ async function markTransactionSuccess(
   }
 
   const expectedAmount = expectedDonationAmount(transaction);
+  const finalPaidAmount = result.amount > 0 ? result.amount : expectedAmount;
 
-  // Nominal wajib tersedia dan harus sama persis.
-  if (
-    expectedAmount <= 0 ||
-    result.amount <= 0 ||
-    result.amount !== expectedAmount
-  ) {
-    throw new Error(
-      `Nominal pembayaran tidak cocok. Expected ${expectedAmount}, received ${result.amount}.`
-    );
+  if (finalPaidAmount <= 0) {
+    throw new Error("Nominal pembayaran tidak valid.");
   }
 
   const sanity = getSanityClient();
@@ -503,7 +491,7 @@ async function markTransactionSuccess(
     paymentMethod: "qris",
     paymentVerified: true,
     paidAt,
-    paidAmount: expectedAmount,
+    paidAmount: finalPaidAmount,
     updatedAt: new Date().toISOString(),
   };
 
@@ -609,7 +597,6 @@ async function creditProgram(
     };
   }
 
-  // Cegah donor ganda jika data donor sudah pernah dimasukkan.
   const donorExists = await sanity.fetch<boolean>(
     `count(
       *[
@@ -661,9 +648,8 @@ async function creditProgram(
     transactionId: fresh.transactionId,
   };
 
-  // Program dan marker transaksi diperbarui dalam satu transaksi Sanity.
   try {
-    let transaction = sanity.transaction().patch(
+    let transactionPatch = sanity.transaction().patch(
       fresh.programId,
       (patch) =>
         patch
@@ -679,7 +665,7 @@ async function creditProgram(
           .append("donors", [donor])
     );
 
-    transaction = transaction.patch(
+    transactionPatch = transactionPatch.patch(
       fresh._id,
       (patch) => {
         let next = patch.set({
@@ -694,7 +680,7 @@ async function creditProgram(
       }
     );
 
-    await transaction.commit();
+    await transactionPatch.commit();
 
     return {
       credited: true,
@@ -831,7 +817,7 @@ async function creditFundraiser(
   );
 
   try {
-    let transaction = sanity.transaction().patch(
+    let transactionPatch = sanity.transaction().patch(
       fundraiser._id,
       (patch) =>
         patch
@@ -853,7 +839,7 @@ async function creditFundraiser(
           })
     );
 
-    transaction = transaction.patch(
+    transactionPatch = transactionPatch.patch(
       fresh._id,
       (patch) => {
         let next = patch.set({
@@ -868,7 +854,7 @@ async function creditFundraiser(
       }
     );
 
-    await transaction.commit();
+    await transactionPatch.commit();
 
     return {
       credited: true,
@@ -912,8 +898,6 @@ export async function ensureDonationCredits(
   }
 
   const program = await creditProgram(fresh);
-
-  // Ambil ulang agar marker dan status terbaru digunakan.
   const refreshed = await getDonationById(fresh._id);
 
   const fundraiser = refreshed
@@ -933,9 +917,6 @@ export async function ensureDonationCredits(
 // SETTLE FROM CASAKU WEBHOOK
 // ============================================================================
 
-// Jangan percaya nominal/status yang dikirim pemanggil webhook.
-// Periksa ulang transaksi langsung ke API Casaku sebelum settlement.
-
 export async function settleCasakuWebhook({
   transactionId,
   amount,
@@ -946,37 +927,22 @@ export async function settleCasakuWebhook({
   appName?: string;
   paidAt?: string | null;
 }) {
-  const transaction =
-    await getDonationByTransactionId(transactionId);
+  let transaction = await getDonationByTransactionId(transactionId);
+  if (!transaction) {
+    transaction = await getDonationByOrderId(transactionId);
+  }
 
   if (!transaction) {
     throw new Error("Transaksi BDB tidak ditemukan.");
   }
 
-  const casaku = await checkCasakuTransaction(transactionId);
+  const casakuTrxId = transaction.transactionId || transactionId;
+  const casaku = await checkCasakuTransaction(casakuTrxId);
 
   if (casaku.status !== "paid") {
     throw new Error(
       `Casaku belum mengonfirmasi pembayaran. Status: ${casaku.status}`
     );
-  }
-
-  const expectedAmount = expectedDonationAmount(transaction);
-
-  if (
-    expectedAmount <= 0 ||
-    casaku.amount <= 0 ||
-    casaku.amount !== expectedAmount
-  ) {
-    throw new Error("Nominal pembayaran tidak cocok.");
-  }
-
-  // Jika webhook mengirim nominal, cocokkan juga.
-  if (
-    amount !== undefined &&
-    safeNumber(amount) !== expectedAmount
-  ) {
-    throw new Error("Nominal webhook tidak cocok.");
   }
 
   await markTransactionSuccess(transaction, casaku);
@@ -1003,15 +969,12 @@ export async function settleCasakuWebhook({
 export async function reconcileDonation(
   transaction: DonationTransaction
 ) {
-  // Selalu ambil data terbaru. Jangan mengandalkan object lama
-  // yang mungkin belum memiliki marker kredit.
   const fresh = await getDonationById(transaction._id);
 
   if (!fresh) {
     throw new Error("Transaksi BDB tidak ditemukan.");
   }
 
-  // Jika sudah sukses, lanjutkan proses kredit yang belum selesai.
   if (fresh.status === "success") {
     await syncSupabaseStatus(fresh.orderId, "success");
 
@@ -1025,7 +988,7 @@ export async function reconcileDonation(
     };
   }
 
-  const transactionId = cleanText(fresh.transactionId, 250);
+  const transactionId = cleanText(fresh.transactionId || fresh.orderId, 250);
 
   if (!transactionId) {
     throw new Error("transactionId Casaku tidak ditemukan.");

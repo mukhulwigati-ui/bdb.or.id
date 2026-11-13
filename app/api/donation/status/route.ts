@@ -5,7 +5,10 @@ import {
   getDonationByOrderId,
   getDonationByTransactionId,
   reconcileDonation,
+  checkCasakuTransaction,
+  ensureDonationCredits,
 } from "@/lib/payments/casaku-settlement";
+import { createClient } from "@sanity/client";
 
 // ============================================================================
 // NEXT CONFIG
@@ -13,6 +16,16 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+function getSanityClient() {
+  return createClient({
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "ks29gg6v",
+    dataset: (process.env.NEXT_PUBLIC_SANITY_DATASET || "production").trim(),
+    apiVersion: "2026-08-31",
+    useCdn: false,
+    token: process.env.SANITY_API_WRITE_TOKEN || process.env.SANITY_API_TOKEN,
+  });
+}
 
 // ============================================================================
 // HELPERS
@@ -77,7 +90,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // Cari transaksi berdasarkan orderId terlebih dahulu, jika tidak ketemu cari by transactionId
+    // 1. Cari transaksi di Sanity berdasarkan orderId atau transactionId
     let transaction = await getDonationByOrderId(identifier);
     if (!transaction) {
       transaction = await getDonationByTransactionId(identifier);
@@ -125,8 +138,35 @@ export async function GET(request: Request) {
       );
     }
 
+    // 2. Jalankan rekonsiliasi utama dengan pengamanan ekstra menggunakan transactionId asli Casaku
     try {
-      const result = await reconcileDonation(transaction);
+      // Pastikan helper rekonsiliasi menggunakan transactionId asli milik Casaku jika tersedia
+      let result;
+      try {
+        result = await reconcileDonation(transaction);
+      } catch (err) {
+        // Fallback langsung cek via checkCasakuTransaction menggunakan transactionId asli
+        const casakuTrxId = transaction.transactionId;
+        if (casakuTrxId) {
+          const casakuRes = await checkCasakuTransaction(casakuTrxId);
+          if (casakuRes.status === "paid") {
+            const sanity = getSanityClient();
+            await sanity.patch(transaction._id).set({
+              status: "success",
+              paymentProvider: "casaku",
+              paymentVerified: true,
+              paidAt: casakuRes.paidAt || new Date().toISOString(),
+              paidAmount: casakuRes.amount || transaction.paymentAmount || transaction.amount,
+              updatedAt: new Date().toISOString(),
+            }).commit();
+
+            const fresh = await getDonationByOrderId(transaction.orderId || "");
+            if (fresh) await ensureDonationCredits(fresh);
+          }
+        }
+        throw err;
+      }
+
       const latestTransaction = result.transaction || transaction;
 
       // Normalisasi status teks untuk dibaca frontend (paid / success / pending)
@@ -136,7 +176,6 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: true,
-          // Format langsung yang sering dibaca frontend:
           status: isSuccess ? "paid" : rawStatus,
           transaction: {
             ...latestTransaction,
