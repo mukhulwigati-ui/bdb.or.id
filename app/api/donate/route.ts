@@ -16,7 +16,6 @@ const CASAKU_API_BASE_URL = "https://api.casaku.id";
 const CASAKU_GENERATE_ENDPOINT = `${CASAKU_API_BASE_URL}/api/generate/v2/qris`;
 
 const CASAKU_EXPIRED_MINUTES = 15;
-// Diubah dari ISLAMI ke BDB atau identitas singkat yang sesuai
 const CASAKU_PREFIX = "BDB";
 
 // ============================================================================
@@ -850,7 +849,7 @@ export async function POST(
     // agar jejak transaksi tetap ada.
     if (createdSanityId) {
       console.warn(
-        `⚠️ Transaksi Sanity sudah dibuat: ${createdSanID}` // atau createdSanityId
+        `⚠️ Transaksi Sanity sudah dibuat: ${createdSanityId}`
       );
     }
 
