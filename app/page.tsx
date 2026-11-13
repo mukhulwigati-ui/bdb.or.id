@@ -70,8 +70,8 @@ export const metadata: Metadata = {
   },
 };
 
-// 🚀 INITIALIZE SANITY CLIENT
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8';
+// 🚀 INITIALIZE SANITY CLIENT (Clean & Public Safe)
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29gg6v';
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
 
 if (!projectId) {
@@ -82,8 +82,8 @@ const serverClient = createClient({
   projectId,
   dataset,
   useCdn: false,
-  apiVersion: '2024-01-01',
-  token: process.env.SANITY_API_TOKEN,
+  apiVersion: '2026-08-31',
+  perspective: 'published',
 });
 
 export const dynamic = 'force-dynamic';
@@ -96,53 +96,59 @@ export default async function HomePage() {
   let pilihanPrograms: any[] = [];
 
   try {
-    // 🚀 Perbaikan Query GROQ: Mengutamakan collectedAmount agar langsung terbaca akurat
-    const query = `{
-      "heroBanners": *[_type in ["heroBanner", "banner"] && active != false] | order(order asc, _createdAt desc)[0...10] {
-        "id": _id,
-        "title": coalesce(title, name),
-        "imageUrl": coalesce(image.asset->url, banner.asset->url),
-        "linkUrl": link
-      },
-      "mendesak": *[_type == "program" && sectionType == "mendesak"] | order(_createdAt desc)[0...5] {
-        "id": _id,
-        "title": title,
-        "slug": slug.current,
-        "image": image.asset->url,
-        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
-        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
-        "targetAmount": coalesce(targetAmount, 50000000),
-        "daysLeft": daysLeft,
-        "donors": donors
-      },
-      "unggulan": *[_type == "program" && sectionType == "unggulan"] | order(_createdAt desc)[0...5] {
-        "id": _id,
-        "title": title,
-        "slug": slug.current,
-        "image": image.asset->url,
-        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
-        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
-        "targetAmount": coalesce(targetAmount, 50000000),
-        "donors": donors
-      },
-      "pilihan": *[_type == "program" && (sectionType == "pilihan" || !defined(sectionType))] | order(_createdAt desc)[0...5] {
-        "id": _id,
-        "title": title,
-        "slug": slug.current,
-        "image": image.asset->url,
-        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
-        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
-        "targetAmount": coalesce(targetAmount, 50000000),
-        "donorsCount": count(donors),
-        "donors": donors
-      }
-    }`;
+    // 🚀 Ambil data menggunakan Promise.all secara terpisah agar aman dari error Failed to fetch global
+    const [rawBanners, rawMendesak, rawUnggulan, rawPilihan] = await Promise.all([
+      serverClient.fetch(
+        `*[_type in ["heroBanner", "banner"] && active != false] | order(order asc, _createdAt desc)[0...10] {
+          "id": _id,
+          "title": coalesce(title, name),
+          "imageUrl": coalesce(image.asset->url, banner.asset->url),
+          "linkUrl": link
+        }`
+      ).catch(() => []),
 
-    const data = await serverClient.fetch(query);
+      serverClient.fetch(
+        `*[_type == "program" && sectionType == "mendesak"] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "daysLeft": daysLeft,
+          "donors": donors
+        }`
+      ).catch(() => []),
+
+      serverClient.fetch(
+        `*[_type == "program" && sectionType == "unggulan"] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "donors": donors
+        }`
+      ).catch(() => []),
+
+      serverClient.fetch(
+        `*[_type == "program" && (sectionType == "pilihan" || !defined(sectionType))] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "donorsCount": count(donors),
+          "donors": donors
+        }`
+      ).catch(() => [])
+    ]);
 
     // Mapping Hero Banners
-    if (data.heroBanners && Array.isArray(data.heroBanners)) {
-      heroBanners = data.heroBanners
+    if (Array.isArray(rawBanners)) {
+      heroBanners = rawBanners
         .filter((item: any) => item && item.imageUrl)
         .map((item: any) => ({
           _id: item.id || Math.random().toString(),
@@ -152,9 +158,9 @@ export default async function HomePage() {
         }));
     }
 
-    mendesakPrograms = data.mendesak || [];
-    unggulanPrograms = data.unggulan || [];
-    pilihanPrograms = data.pilihan || [];
+    mendesakPrograms = Array.isArray(rawMendesak) ? rawMendesak : [];
+    unggulanPrograms = Array.isArray(rawUnggulan) ? rawUnggulan : [];
+    pilihanPrograms = Array.isArray(rawPilihan) ? rawPilihan : [];
 
   } catch (err) {
     console.error('🔥 Gagal mengambil data homepage dari Sanity:', err);

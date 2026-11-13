@@ -3,24 +3,19 @@
 
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import { useRouter } from "next/navigation";
-
 import { PortableText } from "@portabletext/react";
-
 import { QRCodeSVG } from "qrcode.react";
 
 import {
   ArrowLeft,
-  Check,
   CheckCircle2,
   Clock3,
-  Copy,
+  HeartHandshake,
   Loader2,
-  MessageCircle,
   RefreshCw,
   Share2,
   ShieldCheck,
@@ -49,18 +44,14 @@ interface ReportItem {
 interface Program {
   _id?: string;
   id?: string;
-
   title?: string;
   slug?: string;
   image?: string;
-
   category?: string;
   description?: any;
-
   collectedAmount?: number | string;
   targetAmount?: number | string;
   daysLeft?: number;
-
   donors?: Donor[];
   reports?: ReportItem[];
 }
@@ -91,14 +82,10 @@ type PaymentStatus =
 interface CasakuPayment {
   orderId: string;
   transactionId: string;
-
   amount: number;
   totalAmount: number;
-
   qrString: string;
-
   status: PaymentStatus;
-
   expiredAt?: string | null;
   expiredInMinutes?: number;
 }
@@ -117,7 +104,6 @@ const PRESET_AMOUNTS = [
 ];
 
 const STATUS_POLL_INTERVAL = 3000;
-const SITE_URL = "https://www.bdb.or.id";
 
 // ============================================================================
 // HELPERS
@@ -214,7 +200,166 @@ function DetailHeader({ title = "Program Donasi", onOpenShare }: DetailHeaderPro
 }
 
 // ============================================================================
-// DONATION FORM FIELDS
+// KALKULATOR ZAKAT
+// ============================================================================
+
+interface EmbeddedZakatCalculatorProps {
+  onApplyAmount: (value: string) => void;
+}
+
+function EmbeddedZakatCalculator({ onApplyAmount }: EmbeddedZakatCalculatorProps) {
+  const [activeTab, setActiveTab] = useState<"penghasilan" | "maal" | "emas">("penghasilan");
+  const [input1, setInput1] = useState("");
+  const [input2, setInput2] = useState("");
+
+  const HARGA_EMAS = 1_400_000;
+  const NISHAB_TAHUNAN = 85 * HARGA_EMAS;
+  const NISHAB_BULANAN = Math.round(NISHAB_TAHUNAN / 12);
+
+  let totalZakat = 0;
+  let isWajib = false;
+
+  if (activeTab === "penghasilan") {
+    const total = cleanNumber(input1) + cleanNumber(input2);
+    isWajib = total >= NISHAB_BULANAN;
+    totalZakat = isWajib ? Math.round(total * 0.025) : 0;
+  } else if (activeTab === "maal") {
+    const total = cleanNumber(input1) + cleanNumber(input2);
+    isWajib = total >= NISHAB_TAHUNAN;
+    totalZakat = isWajib ? Math.round(total * 0.025) : 0;
+  } else if (activeTab === "emas") {
+    const berat = Number(input1) || 0;
+    isWajib = berat >= 85;
+    totalZakat = isWajib ? Math.round(berat * HARGA_EMAS * 0.025) : 0;
+  }
+
+  const resetInputs = () => {
+    setInput1("");
+    setInput2("");
+  };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex border-b border-slate-100 bg-slate-50 text-xs font-extrabold">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("penghasilan");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "penghasilan"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          PENGHASILAN
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("maal");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "maal"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          MAAL
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("emas");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "emas"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          EMAS
+        </button>
+      </div>
+
+      <div className="space-y-4 p-4 text-left">
+        {activeTab !== "emas" ? (
+          <>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 sm:text-sm">
+                {activeTab === "penghasilan" ? "Pendapatan Utama Per Bulan (Rp)" : "Total Harta / Tabungan (Rp)"}
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+                placeholder="0"
+                value={input1}
+                onChange={(e) => setInput1(formatRupiahInput(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 sm:text-sm">
+                {activeTab === "penghasilan" ? "Tunjangan / Bonus / THR (Rp)" : "Harta Lain yang Dihitung (Rp)"}
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+                placeholder="0"
+                value={input2}
+                onChange={(e) => setInput2(formatRupiahInput(e.target.value))}
+              />
+            </div>
+          </>
+        ) : (
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-600 sm:text-sm">
+              Total Berat Emas (Gram)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+              placeholder="Contoh: 90"
+              value={input1}
+              onChange={(e) => setInput1(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/60 p-4 text-center">
+          <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+            Estimasi Zakat Wajib
+          </span>
+          <span className="block text-2xl font-black text-[#0d5c91]">
+            {formatRupiah(totalZakat)}
+          </span>
+          {input1 && (
+            <p className={`text-xs font-semibold ${isWajib ? "text-emerald-700" : "text-slate-500"}`}>
+              {isWajib ? "✓ Berdasarkan estimasi, telah mencapai nishab." : "⚠ Berdasarkan estimasi, belum mencapai nishab."}
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={totalZakat <= 0}
+            onClick={() => onApplyAmount(totalZakat.toLocaleString("id-ID"))}
+            className="w-full cursor-pointer rounded-xl bg-[#0d5c91] py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            Gunakan Nominal Ini di Form
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// DONATION FORM FIELDS (DALAM POP-UP MODAL)
 // ============================================================================
 
 interface DonationFormFieldsProps {
@@ -229,6 +374,7 @@ interface DonationFormFieldsProps {
   inlinePhone: string;
   setInlinePhone: React.Dispatch<React.SetStateAction<string>>;
   savingPhone: boolean;
+  isZakatProgram: boolean;
 }
 
 function DonationFormFields({
@@ -243,15 +389,17 @@ function DonationFormFields({
   inlinePhone,
   setInlinePhone,
   savingPhone,
+  isZakatProgram,
 }: DonationFormFieldsProps) {
   const cleanAmountNum = cleanNumber(amount);
-  const hasPhone = Boolean(profile?.phone && profile.phone.trim().length >= 9);
+  const currentPhone = normalizePhone(profile?.phone);
+  const hasPhone = Boolean(currentPhone && currentPhone.length >= 9);
 
   return (
     <div className="space-y-4 text-left">
       <div>
         <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
-          Pilih Nominal Donasi
+          Pilih Nominal {isZakatProgram ? "Zakat" : "Donasi"}
         </label>
         <div className="grid grid-cols-3 gap-2">
           {PRESET_AMOUNTS.map((value) => (
@@ -273,7 +421,7 @@ function DonationFormFields({
 
       <div>
         <label className="mb-1 block text-xs font-semibold text-slate-600">
-          Masukkan Donasi Lainnya
+          Masukkan Nominal {isZakatProgram ? "Zakat" : "Donasi"} Lainnya
         </label>
         <div className="relative flex items-center">
           <span className="absolute left-3.5 text-sm font-bold text-slate-400">Rp</span>
@@ -388,7 +536,7 @@ function DonationFormFields({
             Membuat QRIS...
           </>
         ) : (
-          "Lanjut pembayaran"
+          "LANJUT PEMBAYARAN"
         )}
       </button>
     </div>
@@ -439,7 +587,7 @@ function QrisPaymentModal({
               Pembayaran QRIS
             </p>
             <h2 className="mt-0.5 text-base font-extrabold text-slate-900">
-              Selesaikan Donasi
+              Selesaikan Pembayaran
             </h2>
           </div>
 
@@ -465,7 +613,7 @@ function QrisPaymentModal({
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900">Pembayaran Berhasil</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                  Terima kasih. Donasi Anda telah terverifikasi.
+                  Terima kasih. Transaksi Anda telah terverifikasi.
                 </p>
               </div>
 
@@ -614,10 +762,29 @@ export default function CampaignDetailClient({
   const [inlinePhone, setInlinePhone] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
 
+  // State untuk mengontrol Pop-up Formulir Donasi
+  const [isDonateModalOpen, setIsDonateModalOpen] = useState<boolean>(false);
+
+  // Deteksi apakah program ini berjenis zakat berdasarkan kategori atau judul
+  const programTitleLower = (program.title || "").toLowerCase();
+  const programCategoryLower = (program.category || "").toLowerCase();
+  const isZakatProgram =
+    programTitleLower.includes("zakat") ||
+    programCategoryLower.includes("zakat") ||
+    slug.toLowerCase().includes("zakat");
+
+  // Tab State ("cerita" | "donatur" | "laporan")
+  const [activeTab, setActiveTab] = useState<"cerita" | "donatur" | "laporan">("cerita");
+
   // State untuk Modal QRIS
   const [payment, setPayment] = useState<CasakuPayment | null>(null);
   const [countdown, setCountdown] = useState<number>(900); // 15 menit
   const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
+
+  // Hitung persentase terkumpul
+  const collectedNum = cleanNumber(program.collectedAmount);
+  const targetNum = cleanNumber(program.targetAmount) || 50_000_000;
+  const percentage = Math.min(100, Math.round((collectedNum / targetNum) * 100));
 
   // Ambil sesi user supabase di client jika belum ada
   useEffect(() => {
@@ -668,7 +835,20 @@ export default function CampaignDetailClient({
   const handleDonate = async () => {
     const numericAmount = cleanNumber(amount);
     if (numericAmount < 1000) {
-      alert("Minimum donasi adalah Rp 1.000");
+      alert("Minimum nominal adalah Rp 1.000");
+      return;
+    }
+
+    const phoneToCheck = normalizePhone(profile?.phone || inlinePhone);
+    const isValidPhone =
+      phoneToCheck.length >= 9 &&
+      phoneToCheck.length <= 15 &&
+      (phoneToCheck.startsWith("0") ||
+        phoneToCheck.startsWith("62") ||
+        phoneToCheck.startsWith("8"));
+
+    if (!isValidPhone) {
+      alert("Nomor WhatsApp wajib diisi dengan benar.");
       return;
     }
 
@@ -681,15 +861,18 @@ export default function CampaignDetailClient({
           programId: program._id || program.id,
           amount: numericAmount,
           donorName: profile?.name || "Hamba Allah",
-          donorPhone: profile?.phone || inlinePhone || "",
+          phone: phoneToCheck,
           donorEmail: profile?.email || "",
           fundraiserPhone: referral || "",
+          programTitle: program.title,
+          category: program.category,
+          slug: program.slug || slug,
         }),
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.message || "Gagal membuat transaksi donasi.");
+        throw new Error(json.message || "Gagal membuat transaksi.");
       }
 
       const newPayment: CasakuPayment = {
@@ -703,6 +886,7 @@ export default function CampaignDetailClient({
         expiredInMinutes: json.expiredInMinutes || 15,
       };
 
+      setIsDonateModalOpen(false); // Tutup pop-up form, buka pop-up QRIS
       setPayment(newPayment);
       const expiryTime = getPaymentExpiryTimestamp(newPayment);
       const secondsLeft = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
@@ -751,7 +935,7 @@ export default function CampaignDetailClient({
     }
   };
 
-  // Efek Polling Otomatis Setiap 3 Detik (Tanpa Klik Apapun)
+  // Efek Polling Otomatis Setiap 3 Detik
   useEffect(() => {
     if (!payment || payment.status === "paid" || payment.status === "success") return;
 
@@ -790,8 +974,11 @@ export default function CampaignDetailClient({
     }
   };
 
+  const donorList = Array.isArray(program.donors) ? program.donors : [];
+  const reportList = Array.isArray(program.reports) ? program.reports : [];
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-28">
       <DetailHeader
         title={program.title || "Detail Program"}
         onOpenShare={() => {
@@ -805,7 +992,7 @@ export default function CampaignDetailClient({
       />
 
       <main className="mx-auto max-w-md p-4 space-y-4">
-        {/* Gambar & Judul Program */}
+        {/* Gambar Utama Program */}
         <div className="overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm">
           {program.image && (
             <div className="relative aspect-[16/9] w-full bg-slate-100">
@@ -813,38 +1000,223 @@ export default function CampaignDetailClient({
             </div>
           )}
           <div className="p-4 space-y-3">
-            <span className="inline-block rounded-md bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-[#0d5c91] uppercase tracking-wide">
-              {program.category || "Donasi / Zakat"}
-            </span>
-            <h1 className="text-lg font-extrabold text-slate-900 leading-snug">
+            <h1 className="text-xl font-extrabold text-slate-900 leading-snug">
               {program.title}
             </h1>
             <ViewCounter slug={slug} type="campaign" />
           </div>
         </div>
 
-        {/* Formulir Donasi */}
-        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4">
-          <h2 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-slate-900">
-            Formulir Donasi
-          </h2>
-          <DonationFormFields
-            profile={profile}
-            setProfile={setProfile}
-            amount={amount}
-            setAmount={setAmount}
-            handleDonate={handleDonate}
-            handleInlineSavePhone={handleInlineSavePhone}
-            submitting={submitting}
-            isLoggedIn={isLoggedIn}
-            inlinePhone={inlinePhone}
-            setInlinePhone={setInlinePhone}
-            savingPhone={savingPhone}
-          />
+        {/* WIDGET PEROLEHAN & TARGET DONASI */}
+        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 space-y-3">
+          <div>
+            <span className="text-2xl font-black text-[#0d5c91]">
+              {formatRupiah(collectedNum)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center text-xs font-bold">
+            <span className="text-slate-500">
+              Terkumpul dari <strong className="text-slate-800">{program.targetAmount ? formatRupiah(targetNum) : "Rp 50.000.000"}</strong>
+            </span>
+            <span className="rounded bg-sky-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#0d5c91]">
+              Mendesak
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-[#e91e63] transition-all duration-500"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        </div>
+
+        {/* HANYA MUNCUL JIKA INI PROGRAM ZAKAT */}
+        {isZakatProgram && (
+          <div className="space-y-2">
+            <div className="px-1">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                Kalkulator Zakat Interaktif
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Hitung kewajiban zakat Anda dengan mudah dan akurat.
+              </p>
+            </div>
+            <EmbeddedZakatCalculator
+              onApplyAmount={(val) => {
+                setAmount(val);
+                setIsDonateModalOpen(true);
+              }}
+            />
+          </div>
+        )}
+
+        {/* TAB NAVIGASI: Cerita | Donatur | Laporan */}
+        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex border-b border-slate-100 text-sm">
+            <button
+              type="button"
+              onClick={() => setActiveTab("cerita")}
+              className={`flex-1 py-3 text-center font-bold transition ${
+                activeTab === "cerita"
+                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Cerita
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("donatur")}
+              className={`flex-1 py-3 text-center font-bold transition ${
+                activeTab === "donatur"
+                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Donatur ({donorList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("laporan")}
+              className={`flex-1 py-3 text-center font-bold transition ${
+                activeTab === "laporan"
+                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Laporan ({reportList.length})
+            </button>
+          </div>
+
+          <div className="p-4">
+            {activeTab === "cerita" && (
+              <div className="space-y-4">
+                <h2 className="text-base font-extrabold text-slate-900">
+                  {program.title}
+                </h2>
+                <div className="prose prose-sm max-w-none text-slate-600 leading-relaxed">
+                  {program.description ? (
+                    <PortableText value={program.description} />
+                  ) : (
+                    <p>Salurkan donasi terbaik Anda melalui program ini.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "donatur" && (
+              <div className="space-y-3">
+                {donorList.length > 0 ? (
+                  donorList.map((donor, idx) => (
+                    <div key={idx} className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{donor.name || "Hamba Allah"}</p>
+                        <p className="text-[10px] text-slate-400">{donor.date || "Baru saja"}</p>
+                      </div>
+                      <span className="text-xs font-extrabold text-emerald-600">
+                        {typeof donor.amount === "number" ? formatRupiah(donor.amount) : donor.amount}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    Belum ada donatur tercatat. Jadilah yang pertama berdonasi!
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "laporan" && (
+              <div className="space-y-3">
+                {reportList.length > 0 ? (
+                  reportList.map((rep, idx) => (
+                    <div key={idx} className="rounded-xl border border-slate-100 p-3 space-y-1">
+                      <h4 className="text-xs font-bold text-slate-900">{rep.title}</h4>
+                      <p className="text-[10px] text-slate-400">{rep.date}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    Belum ada laporan penyaluran untuk program ini.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Modal QRIS Pembayaran */}
+      {/* STICKY BOTTOM BAR (TOMBOL DONASI FULL-WIDTH TANPA TOMBOL BAGIKAN) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 shadow-lg">
+        <div className="mx-auto max-w-md">
+          <button
+            type="button"
+            onClick={() => setIsDonateModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e91e63] py-3.5 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99]"
+          >
+            <HeartHandshake className="h-5 w-5 text-white" />
+            {isZakatProgram ? "TUNAIKAN ZAKAT" : "DONASI SEKARANG"}
+          </button>
+        </div>
+      </div>
+
+      {/* POP-UP MODAL FORMULIR DONASI */}
+      {isDonateModalOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Formulir Donasi"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Tutup formulir"
+            onClick={() => setIsDonateModalOpen(false)}
+          />
+
+          <div className="relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
+                  {isZakatProgram ? "Formulir Zakat" : "Formulir Donasi"}
+                </p>
+                <h2 className="text-base font-extrabold text-slate-900">
+                  {program.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDonateModalOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+                aria-label="Tutup"
+              >
+                ×
+              </button>
+            </div>
+
+            <DonationFormFields
+              profile={profile}
+              setProfile={setProfile}
+              amount={amount}
+              setAmount={setAmount}
+              handleDonate={handleDonate}
+              handleInlineSavePhone={handleInlineSavePhone}
+              submitting={submitting}
+              isLoggedIn={isLoggedIn}
+              inlinePhone={inlinePhone}
+              setInlinePhone={setInlinePhone}
+              savingPhone={savingPhone}
+              isZakatProgram={isZakatProgram}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL QRIS PEMBAYARAN */}
       {payment && (
         <QrisPaymentModal
           payment={payment}

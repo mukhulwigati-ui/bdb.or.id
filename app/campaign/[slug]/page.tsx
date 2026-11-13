@@ -21,7 +21,7 @@ interface Props {
 }
 
 // ============================================================================
-// RENDERING
+// RENDERING CONFIG
 // ============================================================================
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export const revalidate = 0;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://www.bdb.or.id"
+  "https://bdb.or.id"
 ).replace(/\/$/, "");
 
 const SITE_NAME = "BDB.or.id";
@@ -46,7 +46,7 @@ const DEFAULT_DESCRIPTION =
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.jpg`;
 
 // ============================================================================
-// SANITY CLIENT
+// SANITY CLIENT (Tanpa token untuk akses publik agar bebas error Unauthorized)
 // ============================================================================
 
 const sanityMetaClient = createClient({
@@ -61,7 +61,6 @@ const sanityMetaClient = createClient({
   apiVersion: "2026-08-31",
   useCdn: false,
   perspective: "published",
-  token: process.env.SANITY_API_READ_TOKEN || process.env.SANITY_API_TOKEN,
 });
 
 // ============================================================================
@@ -134,39 +133,32 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// FETCH CAMPAIGN DATA (SUPER FLEKSIBEL: SLUG, ID, ATAU JUDUL)
+// FETCH CAMPAIGN DATA (GROQ Query yang Aman Tanpa datetime())
 // ============================================================================
 
 async function getCampaignData(slug: string) {
   try {
-    const cleanSlug = decodeURIComponent(slug).trim().toLowerCase();
-    // Ubah "peduli-palestina" menjadi "peduli palestina" sebagai cadangan pencocokan judul
-    const titleFromSlug = cleanSlug.replace(/-/g, " ");
-
     const query = `
       *[
-        !(_type in ["news", "category", "heroBanner", "fundraiser", "donationTransaction", "sanity.imageAsset"]) &&
         (
-          lower(slug.current) == $cleanSlug ||
-          lower(slug) == $cleanSlug ||
-          _id == $slug ||
-          lower(title) == $titleFromSlug ||
-          title match $titleFromSlug
+          _type == "program" ||
+          _type == "campaign"
+        ) &&
+        (
+          slug.current == $slug ||
+          _id == $slug
         )
       ][0] {
         _id,
         "id": _id,
         title,
-        "slug": coalesce(slug.current, slug, $cleanSlug),
+        "slug": slug.current,
         category,
         description,
         excerpt,
         collectedAmount,
         targetAmount,
-        "daysLeft": coalesce(
-          round((datetime(endDate) - datetime(now())) / 86400),
-          30
-        ),
+        endDate,
         donors,
         reports,
         "image": coalesce(
@@ -178,12 +170,22 @@ async function getCampaignData(slug: string) {
       }
     `;
 
-    const campaign = await sanityMetaClient.fetch(
-      query,
-      { slug, cleanSlug, titleFromSlug },
-      { cache: "no-store" }
-    );
-    return campaign || null;
+    const campaign = await sanityMetaClient.fetch(query, { slug }, { cache: "no-store" });
+    
+    if (!campaign) return null;
+
+    // Hitung sisa hari secara aman di sisi JavaScript
+    let daysLeft = 30;
+    if (campaign.endDate) {
+      const diffTime = new Date(campaign.endDate).getTime() - new Date().getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      daysLeft = diffDays > 0 ? diffDays : 0;
+    }
+
+    return {
+      ...campaign,
+      daysLeft,
+    };
   } catch (error) {
     console.error("[CAMPAIGN DATA] Gagal mengambil data program dari Sanity:", error);
     return null;
@@ -250,7 +252,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 // ============================================================================
-// PAGE
+// PAGE COMPONENT (DEFAULT EXPORT)
 // ============================================================================
 
 export default async function CampaignPage({ params, searchParams }: Props) {

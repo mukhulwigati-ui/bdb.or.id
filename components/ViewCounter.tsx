@@ -1,5 +1,3 @@
-// components/ViewCounter.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,28 +20,26 @@ export default function ViewCounter({
     if (!slug) return;
 
     let cancelled = false;
-
     const storageKey = `bdb-viewed:${type}:${slug}`;
 
-    async function getCurrentViews() {
-      const res = await fetch(
-        `/api/views?type=${encodeURIComponent(
-          type
-        )}&slug=${encodeURIComponent(slug)}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        }
-      );
+    async function getCurrentViews(): Promise<number> {
+      try {
+        const res = await fetch(
+          `/api/views?type=${encodeURIComponent(
+            type
+          )}&slug=${encodeURIComponent(slug)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
 
-      if (!res.ok) {
-        throw new Error("Gagal mengambil jumlah pembaca");
-      }
+        if (!res.ok) return 0;
 
-      const json = await res.json();
-
-      if (!cancelled) {
-        setViews(Number(json.views ?? 0));
+        const json = await res.json();
+        return Number(json.views ?? 0);
+      } catch {
+        return 0;
       }
     }
 
@@ -57,9 +53,11 @@ export default function ViewCounter({
         // SUDAH DIBACA DALAM SESSION INI
         // HANYA AMBIL JUMLAH
         // =====================================================
-
         if (alreadyViewed) {
-          await getCurrentViews();
+          const current = await getCurrentViews();
+          if (!cancelled) {
+            setViews(current);
+          }
           return;
         }
 
@@ -67,16 +65,12 @@ export default function ViewCounter({
         // BELUM DIBACA
         // TAMBAHKAN 1 VIEW
         // =====================================================
-
         const res = await fetch("/api/views", {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
           },
-
           cache: "no-store",
-
           body: JSON.stringify({
             type,
             slug,
@@ -84,7 +78,12 @@ export default function ViewCounter({
         });
 
         if (!res.ok) {
-          throw new Error("Gagal menambahkan jumlah pembaca");
+          // Fallback aman jika POST gagal
+          const current = await getCurrentViews();
+          if (!cancelled) {
+            setViews(current);
+          }
+          return;
         }
 
         const json = await res.json();
@@ -100,16 +99,11 @@ export default function ViewCounter({
         if (!cancelled) {
           setViews(Number(json.views ?? 0));
         }
-      } catch (error) {
-        console.error("VIEW COUNTER ERROR:", error);
-
-        try {
-          await getCurrentViews();
-        } catch (fallbackError) {
-          console.error(
-            "VIEW COUNTER FALLBACK ERROR:",
-            fallbackError
-          );
+      } catch {
+        // Fallback aman jika terjadi kegagalan jaringan total
+        const current = await getCurrentViews();
+        if (!cancelled) {
+          setViews(current);
         }
       }
     }
