@@ -819,7 +819,7 @@ export default function CampaignDetailClient({
             <h1 className="text-lg font-extrabold text-slate-900 leading-snug">
               {program.title}
             </h1>
-            <ViewCounter slug={slug} type="program" />
+            <ViewCounter slug={slug} type="campaign" />
           </div>
         </div>
 
