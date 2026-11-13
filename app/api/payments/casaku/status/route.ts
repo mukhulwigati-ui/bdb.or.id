@@ -3,61 +3,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@sanity/client";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
 import {
-  ensureDonationCredits,
   getDonationById,
+  checkCasakuTransaction,
+  ensureDonationCredits,
 } from "@/lib/payments/casaku-settlement";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const CASAKU_CHECK_STATUS_ENDPOINT =
-  "https://api.casaku.id/api/generate/check-status";
-
-const REQUEST_TIMEOUT_MS = 15000;
-
-type CasakuStatus = "pending" | "paid" | "cancel" | "expired";
-type InternalStatus = "pending" | "success" | "failed";
-
-interface SanityDonationTransaction {
-  _id: string;
-  orderId?: string;
-  transactionId?: string;
-  status?: string;
-  amount?: number;
-  paymentAmount?: number;
-  paidAmount?: number;
-  paidAt?: string;
-  expiresAt?: string;
-  paymentProvider?: string;
-  paymentVerified?: boolean;
-}
-
-function requiredEnv(name: string, value?: string): string {
-  const result = value?.trim();
-  if (!result) {
-    throw new Error(`${name} belum dikonfigurasi di Vercel.`);
-  }
-  return result;
-}
-
 function getSanityClient() {
   return createClient({
-    projectId: requiredEnv(
-      "NEXT_PUBLIC_SANITY_PROJECT_ID",
-      process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
-    ),
-    dataset: (
-      process.env.NEXT_PUBLIC_SANITY_DATASET || "production"
-    ).trim(),
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "xqggeww8",
+    dataset: (process.env.NEXT_PUBLIC_SANITY_DATASET || "production").trim(),
     apiVersion: "2026-08-31",
     useCdn: false,
-    token: requiredEnv(
-      "SANITY_API_WRITE_TOKEN / SANITY_API_TOKEN",
-      process.env.SANITY_API_WRITE_TOKEN ||
-        process.env.SANITY_API_TOKEN
-    ),
+    token: process.env.SANITY_API_WRITE_TOKEN || process.env.SANITY_API_TOKEN,
   });
 }
 
@@ -65,161 +26,24 @@ function cleanText(value: unknown, maxLength = 500): string {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
-function asObject(value: unknown): Record<string, any> {
-  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, any>;
-  }
-  return {};
-}
-
-function firstDefined(...values: unknown[]): unknown {
-  return values.find(
-    (value) => value !== undefined && value !== null && value !== ""
-  );
-}
-
-function normalizeCasakuStatus(value: unknown): CasakuStatus {
-  const status = cleanText(value, 50)
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-
-  if (
-    [
-      "paid",
-      "success",
-      "successful",
-      "settlement",
-      "settled",
-      "completed",
-      "complete",
-      "berhasil",
-      "lunas",
-    ].includes(status)
-  ) {
-    return "paid";
-  }
-
-  if (
-    [
-      "cancel",
-      "cancelled",
-      "canceled",
-      "void",
-      "cancelled_by_user",
-      "dibatalkan",
-    ].includes(status)
-  ) {
-    return "cancel";
-  }
-
-  if (
-    ["expired", "expire", "timeout", "kadaluarsa"].includes(status)
-  ) {
-    return "expired";
-  }
-
-  return "pending";
-}
-
-function mapInternalStatus(status: CasakuStatus): InternalStatus {
-  if (status === "paid") return "success";
-  if (status === "cancel" || status === "expired") {
-    return "failed";
-  }
-  return "pending";
-}
-
-function parseAmount(value: unknown): number {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value !== "string") {
-    return 0;
-  }
-  const normalized = value.trim().replace(/[^\d.,-]/g, "");
-  if (!normalized) return 0;
-
-  if (/^-?\d{1,3}(\.\d{3})+$/.test(normalized)) {
-    const parsed = Number(normalized.replace(/\./g, ""));
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  const parsed = Number(normalized.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-async function syncSupabaseStatus(
-  orderId: string | undefined,
-  status: InternalStatus
-): Promise<void> {
+async function syncSupabaseStatus(orderId: string | undefined, status: string): Promise<void> {
   if (!orderId) return;
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
   if (!url || !serviceKey) return;
 
   try {
     const supabase = createSupabaseClient(url, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-
-    await supabase
-      .from("donations")
-      .update({ status })
-      .eq("invoice_id", orderId);
+    await supabase.from("donations").update({ status }).eq("invoice_id", orderId);
   } catch (error) {
     console.error("[BDB SUPABASE SYNC ERROR]", error);
   }
 }
 
-function getCasakuResponseData(json: Record<string, any>) {
-  const rootData = asObject(json.data);
-  const nestedData = asObject(rootData.data);
-
-  const transaction = asObject(
-    firstDefined(
-      rootData.transaction,
-      nestedData.transaction,
-      json.transaction
-    )
-  );
-
-  const payment = asObject(
-    firstDefined(
-      rootData.payment,
-      nestedData.payment,
-      transaction.payment,
-      json.payment
-    )
-  );
-
-  return {
-    rootData,
-    nestedData,
-    transaction,
-    payment,
-    candidates: [json, rootData, nestedData, transaction, payment],
-  };
-}
-
-function getValueFromCandidates(
-  candidates: Record<string, any>[],
-  keys: string[]
-): unknown {
-  for (const candidate of candidates) {
-    for (const key of keys) {
-      const value = candidate[key];
-      if (value !== undefined && value !== null && value !== "") {
-        return value;
-      }
-    }
-  }
-  return undefined;
-}
-
 // ============================================================================
-// HANDLE GET (Digunakan oleh Polling Frontend / CampaignDetailClient)
+// GET: Digunakan oleh polling frontend (CampaignDetailClient)
 // ============================================================================
 export async function GET(request: Request) {
   try {
@@ -235,7 +59,8 @@ export async function GET(request: Request) {
 
     const sanity = getSanityClient();
 
-    const transaction = await sanity.fetch<SanityDonationTransaction | null>(
+    // Cari transaksi di Sanity berdasarkan orderId, transactionId, atau _id
+    const transaction = await sanity.fetch(
       `*[
         _type == "donationTransaction" &&
         (orderId == $identifier || transactionId == $identifier || _id == $identifier)
@@ -244,28 +69,23 @@ export async function GET(request: Request) {
         orderId,
         transactionId,
         status,
-        amount,
         paymentAmount,
-        paidAmount,
-        paidAt,
-        expiresAt,
-        paymentProvider,
-        paymentVerified
+        amount
       }`,
       { identifier }
     );
 
     if (!transaction) {
       return NextResponse.json(
-        { success: false, message: "Transaksi tidak ditemukan." },
+        { success: false, message: "Transaksi BDB tidak ditemukan." },
         { status: 404 }
       );
     }
 
+    // Jika di database statusnya sudah sukses/paid, langsung kembalikan sukses
     const currentStatus = String(transaction.status || "").trim().toLowerCase();
     const isPaid = ["success", "paid", "settlement", "completed"].includes(currentStatus);
 
-    // Jika di database sudah paid/success, langsung kembalikan sukses tanpa harus manggil API Casaku terus-menerus
     if (isPaid) {
       return NextResponse.json({
         success: true,
@@ -277,80 +97,50 @@ export async function GET(request: Request) {
       });
     }
 
-    // Jika masih pending, kita lakukan pemeriksaan otomatis langsung ke API Casaku agar user tidak perlu klik manual
-    const licenseKey = requiredEnv("CASAKU_LICENSE_KEY", process.env.CASAKU_LICENSE_KEY);
-    const casakuTrxId = transaction.transactionId || identifier;
+    // Jika masih pending, cek langsung ke Casaku menggunakan modul settlement BDB
+    const casakuTrxId = transaction.transactionId;
+    if (casakuTrxId) {
+      try {
+        const casakuResult = await checkCasakuTransaction(casakuTrxId);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        if (casakuResult.status === "paid") {
+          const expectedAmount = Number(transaction.paymentAmount ?? transaction.amount ?? 0);
 
-    let response: Response;
-    try {
-      response = await fetch(CASAKU_CHECK_STATUS_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "x-license-key": licenseKey,
-        },
-        body: JSON.stringify({ transactionId: casakuTrxId }),
-        cache: "no-store",
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+          if (casakuResult.amount > 0 && expectedAmount > 0 && casakuResult.amount === expectedAmount) {
+            const paidAt = casakuResult.paidAt || new Date().toISOString();
+            
+            // Update status transaksi jadi success di Sanity
+            await sanity.patch(transaction._id).set({
+              status: "success",
+              paymentProvider: "casaku",
+              paymentMethod: "qris",
+              paymentVerified: true,
+              paidAt,
+              paidAmount: expectedAmount,
+              updatedAt: new Date().toISOString(),
+            }).commit();
 
-    const rawText = await response.text();
-    let json: Record<string, any>;
+            // Sinkronkan ke Supabase
+            await syncSupabaseStatus(transaction.orderId, "success");
 
-    try {
-      json = asObject(rawText ? JSON.parse(rawText) : null);
-    } catch {
-      json = {};
-    }
+            // Proses kredit program & fundraiser BDB
+            const fresh = await getDonationById(transaction._id);
+            if (fresh) {
+              await ensureDonationCredits(fresh);
+            }
 
-    if (response.ok && json.success !== false) {
-      const parsed = getCasakuResponseData(json);
-      const rawStatus = getValueFromCandidates(parsed.candidates, [
-        "status",
-        "transactionStatus",
-        "transaction_status",
-        "paymentStatus",
-        "payment_status",
-      ]);
-
-      const casakuStatus = normalizeCasakuStatus(rawStatus);
-      const finalStatus = mapInternalStatus(casakuStatus);
-
-      if (finalStatus === "success" && transaction.status !== "success") {
-        const expectedAmount = parseAmount(transaction.paymentAmount ?? transaction.amount);
-        const patch: Record<string, unknown> = {
-          status: "success",
-          paymentProvider: "casaku",
-          paymentMethod: "qris",
-          paymentVerified: true,
-          paidAt: transaction.paidAt || new Date().toISOString(),
-          paidAmount: expectedAmount,
-          updatedAt: new Date().toISOString(),
-        };
-
-        await sanity.patch(transaction._id).set(patch).commit();
-        await syncSupabaseStatus(transaction.orderId, "success");
-
-        const paidTransaction = await getDonationById(transaction._id);
-        if (paidTransaction) {
-          await ensureDonationCredits(paidTransaction);
+            return NextResponse.json({
+              success: true,
+              transaction: {
+                orderId: transaction.orderId,
+                transactionId: transaction.transactionId,
+                status: "paid",
+              },
+            });
+          }
         }
-
-        return NextResponse.json({
-          success: true,
-          transaction: {
-            orderId: transaction.orderId,
-            transactionId: transaction.transactionId,
-            status: "paid",
-          },
-        });
+      } catch (err) {
+        console.warn("⚠️ Gagal verifikasi online ke Casaku via GET:", err);
       }
     }
 
@@ -364,23 +154,19 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("[BDB STATUS GET ERROR]", error);
-    return NextResponse.json({ success: false, message: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: error instanceof Error ? error.message : "Server error" },
+      { status: 500 }
+    );
   }
 }
 
 // ============================================================================
-// HANDLE POST (Kompatibel dengan sistem lama / Casaku Check Status)
+// POST: Kompatibilitas server-to-server / manual trigger / webhook check
 // ============================================================================
 export async function POST(request: Request) {
-  let stage = "configuration";
-
   try {
-    const sanity = getSanityClient();
-    const licenseKey = requiredEnv("CASAKU_LICENSE_KEY", process.env.CASAKU_LICENSE_KEY);
-
-    stage = "request validation";
     let body: any;
-
     try {
       body = await request.json();
     } catch {
@@ -390,178 +176,74 @@ export async function POST(request: Request) {
       );
     }
 
-    const transactionId = cleanText(body?.transactionId || body?.orderId, 250);
-
-    if (!transactionId) {
+    const identifier = cleanText(body?.transactionId || body?.orderId, 250);
+    if (!identifier) {
       return NextResponse.json(
-        { success: false, message: "transactionId wajib diisi." },
+        { success: false, message: "transactionId atau orderId wajib diisi." },
         { status: 400 }
       );
     }
 
-    stage = "Sanity transaction lookup";
-    const transaction = await sanity.fetch<SanityDonationTransaction | null>(
+    const sanity = getSanityClient();
+    const transaction = await sanity.fetch(
       `*[
         _type == "donationTransaction" &&
-        (transactionId == $transactionId || orderId == $transactionId || _id == $transactionId)
+        (transactionId == $identifier || orderId == $identifier || _id == $identifier)
       ][0]{
         _id,
         orderId,
         transactionId,
-        status,
-        amount,
-        paymentAmount,
-        paidAmount,
-        paidAt,
-        expiresAt,
-        paymentProvider,
-        paymentVerified
+        status
       }`,
-      { transactionId }
+      { identifier }
     );
 
-    if (!transaction) {
+    if (!transaction || !transaction.transactionId) {
       return NextResponse.json(
-        { success: false, message: "Transaksi BDB.or.id tidak ditemukan." },
+        { success: false, message: "Transaksi BDB tidak ditemukan." },
         { status: 404 }
       );
     }
 
-    stage = "Casaku check-status";
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const casakuResult = await checkCasakuTransaction(transaction.transactionId);
 
-    let response: Response;
+    if (casakuResult.status === "paid") {
+      const fresh = await getDonationById(transaction._id);
+      if (fresh && fresh.status !== "success") {
+        await sanity.patch(fresh._id).set({
+          status: "success",
+          paymentProvider: "casaku",
+          paymentMethod: "qris",
+          paymentVerified: true,
+          paidAt: casakuResult.paidAt || new Date().toISOString(),
+          paidAmount: casakuResult.amount,
+          updatedAt: new Date().toISOString(),
+        }).commit();
 
-    try {
-      response = await fetch(CASAKU_CHECK_STATUS_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "x-license-key": licenseKey,
-        },
-        body: JSON.stringify({ transactionId: transaction.transactionId || transactionId }),
-        cache: "no-store",
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+        await syncSupabaseStatus(fresh.orderId, "success");
 
-    const rawText = await response.text();
-    let json: Record<string, any>;
-
-    try {
-      json = asObject(rawText ? JSON.parse(rawText) : null);
-    } catch {
-      return NextResponse.json(
-        { success: false, source: "casaku", message: "Respons Casaku bukan JSON yang valid." },
-        { status: 502 }
-      );
-    }
-
-    if (!response.ok || json.success === false) {
-      return NextResponse.json(
-        { success: false, source: "casaku", message: cleanText(json.message) || "Casaku gagal memeriksa transaksi." },
-        { status: 502 }
-      );
-    }
-
-    stage = "Casaku response validation";
-    const parsed = getCasakuResponseData(json);
-    const candidates = parsed.candidates;
-
-    const rawStatus = getValueFromCandidates(candidates, [
-      "status",
-      "transactionStatus",
-      "transaction_status",
-      "paymentStatus",
-      "payment_status",
-    ]);
-
-    const casakuStatus = normalizeCasakuStatus(rawStatus);
-
-    stage = "payment amount verification";
-    const returnedAmount = parseAmount(
-      getValueFromCandidates(candidates, [
-        "totalAmount",
-        "total_amount",
-        "amount",
-        "paidAmount",
-        "paid_amount",
-        "transactionAmount",
-        "transaction_amount",
-      ])
-    );
-
-    const expectedAmount = parseAmount(transaction.paymentAmount ?? transaction.amount);
-
-    if (casakuStatus === "paid" && expectedAmount > 0 && returnedAmount > 0 && returnedAmount !== expectedAmount) {
-      return NextResponse.json(
-        { success: false, message: "Nominal pembayaran tidak cocok." },
-        { status: 409 }
-      );
-    }
-
-    stage = "Sanity transaction update";
-    let finalStatus = mapInternalStatus(casakuStatus);
-
-    if (transaction.status === "success") {
-      finalStatus = "success";
-    }
-
-    const patch: Record<string, unknown> = {};
-    if (transaction.status !== finalStatus) {
-      patch.status = finalStatus;
-    }
-
-    if (finalStatus === "success") {
-      patch.paymentProvider = "casaku";
-      patch.paymentMethod = "qris";
-      patch.paymentVerified = true;
-      patch.paidAt = transaction.paidAt || new Date().toISOString();
-      patch.paidAmount = expectedAmount;
-    }
-
-    if (Object.keys(patch).length > 0) {
-      patch.updatedAt = new Date().toISOString();
-      await sanity.patch(transaction._id).set(patch).commit();
-    }
-
-    stage = "Supabase status synchronization";
-    await syncSupabaseStatus(transaction.orderId, finalStatus);
-
-    let donationCredits: unknown = null;
-    if (finalStatus === "success") {
-      stage = "donation credit processing";
-      const paidTransaction = await getDonationById(transaction._id);
-      if (paidTransaction) {
-        donationCredits = await ensureDonationCredits(paidTransaction);
+        const paidFresh = await getDonationById(fresh._id);
+        if (paidFresh) {
+          await ensureDonationCredits(paidFresh);
+        }
       }
+
+      return NextResponse.json({
+        success: true,
+        status: "paid",
+        transactionId: transaction.transactionId,
+      });
     }
 
-    const finalCasakuStatus: CasakuStatus =
-      finalStatus === "success" ? "paid" : finalStatus === "failed" ? "expired" : "pending";
-
-    return NextResponse.json(
-      {
-        success: true,
-        provider: "casaku",
-        transactionId,
-        orderId: transaction.orderId || null,
-        status: finalCasakuStatus,
-        internalStatus: finalStatus,
-        amount: expectedAmount,
-        paymentVerified: finalStatus === "success",
-        donationCredits,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      status: casakuResult.status,
+      transactionId: transaction.transactionId,
+    });
   } catch (error) {
-    console.error("[BDB CASAKU STATUS ERROR]", error);
+    console.error("[BDB STATUS POST ERROR]", error);
     return NextResponse.json(
-      { success: false, source: stage, message: error instanceof Error ? error.message : "Terjadi kesalahan sistem." },
+      { success: false, message: error instanceof Error ? error.message : "Server error" },
       { status: 500 }
     );
   }
