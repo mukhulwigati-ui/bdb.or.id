@@ -20,13 +20,6 @@ interface Props {
   }>;
 }
 
-interface CampaignMetadataData {
-  title?: string;
-  description?: unknown;
-  excerpt?: unknown;
-  imageUrl?: string;
-}
-
 // ============================================================================
 // RENDERING
 // ============================================================================
@@ -141,19 +134,23 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// FETCH CAMPAIGN DATA
+// FETCH CAMPAIGN DATA (CASE-INSENSITIVE & FLEXIBLE)
 // ============================================================================
 
 async function getCampaignData(slug: string) {
   try {
+    const cleanSlug = decodeURIComponent(slug).trim().toLowerCase();
+
+    // Query fleksibel: mencocokkan slug huruf kecil/besar atau ID
     const query = `
       *[
         (
           _type == "program" ||
-          _type == "campaign"
+          _type == "campaign" ||
+          _type == "donationProgram"
         ) &&
         (
-          slug.current == $slug ||
+          lower(slug.current) == $cleanSlug ||
           _id == $slug
         )
       ][0] {
@@ -166,7 +163,10 @@ async function getCampaignData(slug: string) {
         excerpt,
         collectedAmount,
         targetAmount,
-        "daysLeft": round(datetime(coalesce(endDate, "2026-12-31T23:59:59Z")) - datetime(now()) / 86400),
+        "daysLeft": coalesce(
+          round((datetime(endDate) - datetime(now())) / 86400),
+          30
+        ),
         donors,
         reports,
         "image": coalesce(
@@ -178,7 +178,11 @@ async function getCampaignData(slug: string) {
       }
     `;
 
-    const campaign = await sanityMetaClient.fetch(query, { slug }, { cache: "no-store" });
+    const campaign = await sanityMetaClient.fetch(
+      query,
+      { slug, cleanSlug },
+      { cache: "no-store" }
+    );
     return campaign || null;
   } catch (error) {
     console.error("[CAMPAIGN DATA] Gagal mengambil data program dari Sanity:", error);
