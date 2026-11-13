@@ -2,6 +2,7 @@
 
 import type { Metadata } from "next";
 import { createClient } from "@sanity/client";
+import { notFound } from "next/navigation";
 
 import CampaignDetailClient from "@/components/CampaignDetailClient";
 
@@ -140,10 +141,10 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// GET CAMPAIGN METADATA
+// FETCH CAMPAIGN DATA
 // ============================================================================
 
-async function getCampaignMetadata(slug: string): Promise<CampaignMetadataData | null> {
+async function getCampaignData(slug: string) {
   try {
     const query = `
       *[
@@ -156,10 +157,19 @@ async function getCampaignMetadata(slug: string): Promise<CampaignMetadataData |
           _id == $slug
         )
       ][0] {
+        _id,
+        "id": _id,
         title,
+        "slug": slug.current,
+        category,
         description,
         excerpt,
-        "imageUrl": coalesce(
+        collectedAmount,
+        targetAmount,
+        "daysLeft": round(datetime(coalesce(endDate, "2026-12-31T23:59:59Z")) - datetime(now()) / 86400),
+        donors,
+        reports,
+        "image": coalesce(
           mainImage.asset->url,
           image.asset->url,
           thumbnail.asset->url,
@@ -168,15 +178,10 @@ async function getCampaignMetadata(slug: string): Promise<CampaignMetadataData |
       }
     `;
 
-    const campaign = await sanityMetaClient.fetch<CampaignMetadataData | null>(
-      query,
-      { slug },
-      { cache: "no-store" }
-    );
-
+    const campaign = await sanityMetaClient.fetch(query, { slug }, { cache: "no-store" });
     return campaign || null;
   } catch (error) {
-    console.error("[CAMPAIGN METADATA] Gagal mengambil metadata dari Sanity:", error);
+    console.error("[CAMPAIGN DATA] Gagal mengambil data program dari Sanity:", error);
     return null;
   }
 }
@@ -191,7 +196,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const encodedSlug = encodeURIComponent(decodedSlug);
   const campaignUrl = `${SITE_URL}/campaign/${encodedSlug}`;
 
-  const campaign = await getCampaignMetadata(decodedSlug);
+  const campaign = await getCampaignData(decodedSlug);
 
   let title = DEFAULT_TITLE;
   let description = DEFAULT_DESCRIPTION;
@@ -203,7 +208,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     }
     const rawDescription = campaign.excerpt || campaign.description;
     description = createMetaDescription(rawDescription, `Dukung program ${title} bersama bdb.or.id.`);
-    image = buildSocialImageUrl(campaign.imageUrl);
+    image = buildSocialImageUrl(campaign.image);
   }
 
   return {
@@ -249,11 +254,17 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   const { ref } = await searchParams;
 
   const decodedSlug = decodeURIComponent(slug).trim();
+  const programData = await getCampaignData(decodedSlug);
+
+  if (!programData) {
+    notFound();
+  }
 
   return (
     <CampaignDetailClient
-      slug={decodedSlug}
+      slug={slug}
       referral={ref ?? null}
+      program={programData}
     />
   );
 }
