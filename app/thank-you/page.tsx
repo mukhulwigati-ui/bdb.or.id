@@ -9,8 +9,8 @@ import { useSearchParams } from 'next/navigation';
 function ThankYouContent() {
   const searchParams = useSearchParams();
   
-  // Menangkap parameter order id atau invoice dari redirect Pakasir
-  const orderId = searchParams.get('order_id') || searchParams.get('invoice') || searchParams.get('id') || 'INV-BDB-XXXXXX';
+  // Menangkap parameter order id atau invoice dari redirect pembayaran
+  const orderId = searchParams.get('order_id') || searchParams.get('orderId') || searchParams.get('invoice') || searchParams.get('id') || 'INV-BDB-XXXXXX';
 
   return (
     <div className="w-full max-w-md bg-white border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col justify-between text-center space-y-5 rounded-2xl">
@@ -49,7 +49,7 @@ function ThankYouContent() {
           <div className="flex justify-between items-center text-xs sm:text-sm font-medium border-t border-slate-200 pt-2.5">
             <span className="text-slate-400 uppercase tracking-wider">Metode Pembayaran</span>
             <span className="text-slate-800 font-bold uppercase tracking-wider text-xs">
-              Pakasir Payment Gateway
+              QRIS Casaku
             </span>
           </div>
         </div>
@@ -59,7 +59,7 @@ function ThankYouContent() {
       <div className="pt-2">
         <Link 
           href="/" 
-          className="block w-full text-center bg-emerald-900 hover:bg-emerald-950 text-white font-bold py-3.5 transition text-xs sm:text-sm uppercase tracking-wider shadow-sm rounded-xl"
+          className="block w-full text-center bg-[#0d5c91] hover:bg-sky-900 text-white font-bold py-3.5 transition text-xs sm:text-sm uppercase tracking-wider shadow-sm rounded-xl cursor-pointer"
         >
           Kembali ke Beranda 🚀
         </Link>
