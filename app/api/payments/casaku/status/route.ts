@@ -1,3 +1,5 @@
+// app/api/payments/casaku/status/route.ts
+
 import { NextResponse } from "next/server";
 import { createClient } from "@sanity/client";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -233,7 +235,6 @@ export async function GET(request: Request) {
 
     const sanity = getSanityClient();
 
-    // Cari transaksi berdasarkan orderId atau transactionId di Sanity
     const transaction = await sanity.fetch<SanityDonationTransaction | null>(
       `*[
         _type == "donationTransaction" &&
@@ -261,16 +262,104 @@ export async function GET(request: Request) {
       );
     }
 
-    // Jika di database status sudah sukses/paid, langsung kembalikan sukses
     const currentStatus = String(transaction.status || "").trim().toLowerCase();
     const isPaid = ["success", "paid", "settlement", "completed"].includes(currentStatus);
+
+    // Jika di database sudah paid/success, langsung kembalikan sukses tanpa harus manggil API Casaku terus-menerus
+    if (isPaid) {
+      return NextResponse.json({
+        success: true,
+        transaction: {
+          orderId: transaction.orderId,
+          transactionId: transaction.transactionId,
+          status: "paid",
+        },
+      });
+    }
+
+    // Jika masih pending, kita lakukan pemeriksaan otomatis langsung ke API Casaku agar user tidak perlu klik manual
+    const licenseKey = requiredEnv("CASAKU_LICENSE_KEY", process.env.CASAKU_LICENSE_KEY);
+    const casakuTrxId = transaction.transactionId || identifier;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(CASAKU_CHECK_STATUS_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "x-license-key": licenseKey,
+        },
+        body: JSON.stringify({ transactionId: casakuTrxId }),
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const rawText = await response.text();
+    let json: Record<string, any>;
+
+    try {
+      json = asObject(rawText ? JSON.parse(rawText) : null);
+    } catch {
+      json = {};
+    }
+
+    if (response.ok && json.success !== false) {
+      const parsed = getCasakuResponseData(json);
+      const rawStatus = getValueFromCandidates(parsed.candidates, [
+        "status",
+        "transactionStatus",
+        "transaction_status",
+        "paymentStatus",
+        "payment_status",
+      ]);
+
+      const casakuStatus = normalizeCasakuStatus(rawStatus);
+      const finalStatus = mapInternalStatus(casakuStatus);
+
+      if (finalStatus === "success" && transaction.status !== "success") {
+        const expectedAmount = parseAmount(transaction.paymentAmount ?? transaction.amount);
+        const patch: Record<string, unknown> = {
+          status: "success",
+          paymentProvider: "casaku",
+          paymentMethod: "qris",
+          paymentVerified: true,
+          paidAt: transaction.paidAt || new Date().toISOString(),
+          paidAmount: expectedAmount,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await sanity.patch(transaction._id).set(patch).commit();
+        await syncSupabaseStatus(transaction.orderId, "success");
+
+        const paidTransaction = await getDonationById(transaction._id);
+        if (paidTransaction) {
+          await ensureDonationCredits(paidTransaction);
+        }
+
+        return NextResponse.json({
+          success: true,
+          transaction: {
+            orderId: transaction.orderId,
+            transactionId: transaction.transactionId,
+            status: "paid",
+          },
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       transaction: {
         orderId: transaction.orderId,
         transactionId: transaction.transactionId,
-        status: isPaid ? "paid" : transaction.status || "pending",
+        status: transaction.status || "pending",
       },
     });
   } catch (error) {
@@ -314,7 +403,7 @@ export async function POST(request: Request) {
     const transaction = await sanity.fetch<SanityDonationTransaction | null>(
       `*[
         _type == "donationTransaction" &&
-        (transactionId == $transactionId || orderId == $transactionId)
+        (transactionId == $transactionId || orderId == $transactionId || _id == $transactionId)
       ][0]{
         _id,
         orderId,
