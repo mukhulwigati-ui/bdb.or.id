@@ -72,6 +72,12 @@ export default defineType({
       readOnly: true,
     }),
     defineField({
+      name: 'qrString',
+      title: 'QR String / EMVCo string',
+      type: 'string',
+      readOnly: true,
+    }),
+    defineField({
       name: 'transactionId',
       title: 'ID Transaksi Gateway (BDB-...)',
       type: 'string',
@@ -104,6 +110,12 @@ export default defineType({
     defineField({
       name: 'expiresAt',
       title: 'Waktu Kedaluwarsa',
+      type: 'datetime',
+      readOnly: true,
+    }),
+    defineField({
+      name: 'createdAt',
+      title: 'Waktu Dibuat (Created At)',
       type: 'datetime',
       readOnly: true,
     }),
