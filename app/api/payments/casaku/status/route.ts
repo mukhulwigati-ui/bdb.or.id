@@ -59,7 +59,7 @@ export async function GET(request: Request) {
 
     const sanity = getSanityClient();
 
-    // Cari transaksi di Sanity berdasarkan orderId, transactionId, atau _id
+    // 1. Cari transaksi di Sanity
     const transaction = await sanity.fetch(
       `*[
         _type == "donationTransaction" &&
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       );
     }
 
-    // Jika di database statusnya sudah sukses/paid, langsung kembalikan sukses
+    // 2. Jika di database statusnya sudah sukses/paid, langsung kembalikan sukses
     const currentStatus = String(transaction.status || "").trim().toLowerCase();
     const isPaid = ["success", "paid", "settlement", "completed"].includes(currentStatus);
 
@@ -97,47 +97,47 @@ export async function GET(request: Request) {
       });
     }
 
-    // Jika masih pending, cek langsung ke Casaku menggunakan modul settlement BDB
-    const casakuTrxId = transaction.transactionId;
+    // 3. Jika masih pending, cek langsung ke API Casaku
+    const casakuTrxId = transaction.transactionId || identifier;
     if (casakuTrxId) {
       try {
         const casakuResult = await checkCasakuTransaction(casakuTrxId);
 
+        console.log("🔍 Hasil Cek Casaku:", casakuResult);
+
+        // Jika Casaku menyatakan sudah lunas/paid
         if (casakuResult.status === "paid") {
-          const expectedAmount = Number(transaction.paymentAmount ?? transaction.amount ?? 0);
+          const paidAt = casakuResult.paidAt || new Date().toISOString();
+          const finalAmount = Number(casakuResult.amount || transaction.paymentAmount || transaction.amount || 0);
 
-          if (casakuResult.amount > 0 && expectedAmount > 0 && casakuResult.amount === expectedAmount) {
-            const paidAt = casakuResult.paidAt || new Date().toISOString();
-            
-            // Update status transaksi jadi success di Sanity
-            await sanity.patch(transaction._id).set({
-              status: "success",
-              paymentProvider: "casaku",
-              paymentMethod: "qris",
-              paymentVerified: true,
-              paidAt,
-              paidAmount: expectedAmount,
-              updatedAt: new Date().toISOString(),
-            }).commit();
+          // Update status transaksi jadi success di Sanity
+          await sanity.patch(transaction._id).set({
+            status: "success",
+            paymentProvider: "casaku",
+            paymentMethod: "qris",
+            paymentVerified: true,
+            paidAt,
+            paidAmount: finalAmount,
+            updatedAt: new Date().toISOString(),
+          }).commit();
 
-            // Sinkronkan ke Supabase
-            await syncSupabaseStatus(transaction.orderId, "success");
+          // Sinkronkan ke Supabase
+          await syncSupabaseStatus(transaction.orderId, "success");
 
-            // Proses kredit program & fundraiser BDB
-            const fresh = await getDonationById(transaction._id);
-            if (fresh) {
-              await ensureDonationCredits(fresh);
-            }
-
-            return NextResponse.json({
-              success: true,
-              transaction: {
-                orderId: transaction.orderId,
-                transactionId: transaction.transactionId,
-                status: "paid",
-              },
-            });
+          // Proses kredit program & fundraiser BDB
+          const fresh = await getDonationById(transaction._id);
+          if (fresh) {
+            await ensureDonationCredits(fresh);
           }
+
+          return NextResponse.json({
+            success: true,
+            transaction: {
+              orderId: transaction.orderId,
+              transactionId: transaction.transactionId,
+              status: "paid",
+            },
+          });
         }
       } catch (err) {
         console.warn("⚠️ Gagal verifikasi online ke Casaku via GET:", err);

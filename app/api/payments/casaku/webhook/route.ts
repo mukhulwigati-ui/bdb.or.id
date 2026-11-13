@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 import { createClient } from "@sanity/client";
-
 import {
   createClient as createSupabaseClient,
 } from "@supabase/supabase-js";
@@ -44,6 +43,9 @@ const sanityClient = createClient({
 
 interface CasakuWebhookPayload {
   transactionId?: string;
+  id?: string;
+  trx_id?: string;
+  orderId?: string;
   amount?: number;
   totalAmount?: number;
   packageName?: string;
@@ -821,7 +823,10 @@ export async function POST(
 
     const transactionId =
       cleanText(
-        payload.transactionId,
+        payload.transactionId ||
+          payload.id ||
+          payload.trx_id ||
+          payload.orderId,
         250
       );
 
@@ -871,7 +876,9 @@ export async function POST(
 
     if (
       webhookStatus !== "paid" &&
-      webhookStatus !== "success"
+      webhookStatus !== "success" &&
+      webhookStatus !== "settlement" &&
+      webhookStatus !== "completed"
     ) {
       return NextResponse.json(
         {
@@ -887,7 +894,7 @@ export async function POST(
     }
 
     // =========================================================================
-    // 7. AMBIL TRANSAKSI (Mendukung pencocokan transactionId atau orderId)
+    // 7. AMBIL TRANSAKSI (Mendukung pencocokan transactionId atau orderId dengan prefix BDB)
     // =========================================================================
 
     let transaction =

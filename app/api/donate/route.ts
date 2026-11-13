@@ -176,7 +176,6 @@ async function createCasakuTransaction({
       );
     }
 
-    // Validasi error jika success bernilai false atau status bukan indikator sukses
     if (
       json.success === false ||
       (json.status !== undefined &&
@@ -268,10 +267,8 @@ export async function POST(request: Request) {
   let createdSanityId: string | null = null;
 
   try {
-    // 1. VALIDASI ENVIRONMENT
     const { licenseKey, qrisId } = getRequiredEnvironment();
 
-    // 2. BACA REQUEST
     let body: DonateRequestBody;
     try {
       body = (await request.json()) as DonateRequestBody;
@@ -294,7 +291,6 @@ export async function POST(request: Request) {
       slug,
     } = body;
 
-    // 3. VALIDASI NOMINAL
     const cleanAmount = cleanAmountValue(amount);
 
     if (!cleanAmount || cleanAmount < 1000) {
@@ -314,7 +310,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. NORMALISASI & VALIDASI DATA DONATUR
     const normalizedDonorName = cleanText(donorName, 150) || "Hamba Allah";
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = cleanText(email, 200);
@@ -348,10 +343,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. GENERATE ORDER ID INTERNAL
     const orderId = generateOrderId();
 
-    // 6. DAPATKAN USER SUPABASE JIKA LOGIN
     let userId: string | null = null;
     let supabase: ReturnType<typeof createServerClient> | null = null;
 
@@ -379,7 +372,7 @@ export async function POST(request: Request) {
       console.warn("⚠️ Gagal membaca user Supabase:", error);
     }
 
-    // 7. BUAT TRANSAKSI QRIS CASAKU
+    // Buat transaksi QRIS Casaku (Prefix BDB otomatis dikirim ke API Casaku)
     const casaku = await createCasakuTransaction({
       licenseKey,
       qrisId,
@@ -388,7 +381,7 @@ export async function POST(request: Request) {
 
     const paymentAmount = casaku.totalAmount;
 
-    // 8. SIMPAN TRANSAKSI UTAMA KE SANITY
+    // Simpan ke Sanity dengan transactionId dan orderId yang akurat
     const sanityTransaction = await serverClient.create({
       _type: "donationTransaction",
       orderId,
@@ -417,7 +410,7 @@ export async function POST(request: Request) {
 
     createdSanityId = sanityTransaction._id;
 
-    // 9. SINKRONKAN KE SUPABASE
+    // Sinkronkan ke Supabase
     if (supabase) {
       try {
         const { error: supabaseError } = await supabase
@@ -446,7 +439,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 10. RESPONSE KE FRONTEND
     return NextResponse.json(
       {
         success: true,
