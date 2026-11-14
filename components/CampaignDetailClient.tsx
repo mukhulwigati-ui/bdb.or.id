@@ -2729,12 +2729,17 @@ export default function CampaignDetailClient({
               "Program Kebaikan"}
           </h1>
 
-          <div className="flex items-center text-xs text-slate-500 sm:text-sm">
+          <div className="flex items-center justify-between text-xs text-slate-500 sm:text-sm">
             <ViewCounter
               type="campaign"
               slug={program.slug || slug}
               className="text-xs text-slate-500 sm:text-sm"
             />
+            {program.category && (
+              <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-[#0d5c91] border border-sky-100">
+                {program.category}
+              </span>
+            )}
           </div>
 
           <div className="space-y-2 pt-1">
