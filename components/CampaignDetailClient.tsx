@@ -4,6 +4,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PortableText } from "@portabletext/react";
 import { QRCodeSVG } from "qrcode.react";
 
 import {
@@ -97,8 +98,6 @@ const PRESET_AMOUNTS = [
   100_000,
   250_000,
 ];
-
-const DEFAULT_PAYMENT_MINUTES = 15;
 
 // ============================================================================
 // HELPERS
@@ -970,10 +969,10 @@ export default function CampaignDetailClient({
           </div>
         )}
 
-        <div className="bg-white p-4 shadow-sm border border-slate-200 space-y-3">
+        <div className="bg-white p-4 shadow-sm border border-slate-200 space-y-4">
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
-              <ViewCounter slug={slug} type="campaign" /> dibaca
+              <ViewCounter slug={slug} type="campaign" />
             </span>
 
             {program.category && (
@@ -1000,6 +999,16 @@ export default function CampaignDetailClient({
             {isZakatProgram ? "TUNAIKAN ZAKAT SEKARANG" : "DONASI SEKARANG"}
           </button>
         </div>
+
+        {/* DESKRIPSI / ARTIKEL / NARASI PROGRAM DARI SANITY */}
+        {program.description && (
+          <div className="bg-white p-4 shadow-sm border border-slate-200 prose prose-sm max-w-none text-slate-700">
+            <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 mb-3">
+              Kisah & Detail Program
+            </h3>
+            <PortableText value={program.description} />
+          </div>
+        )}
       </main>
 
       <DonationFormModal
