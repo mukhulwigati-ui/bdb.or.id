@@ -2,22 +2,14 @@
 
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PortableText } from "@portabletext/react";
 import { QRCodeSVG } from "qrcode.react";
 
 import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
-  HeartHandshake,
   Loader2,
   RefreshCw,
   Share2,
@@ -106,7 +98,6 @@ const PRESET_AMOUNTS = [
   250_000,
 ];
 
-const STATUS_POLL_INTERVAL = 3000;
 const DEFAULT_PAYMENT_MINUTES = 15;
 
 // ============================================================================
@@ -141,62 +132,6 @@ function formatCountdown(totalSeconds: number): string {
   const seconds = safe % 60;
 
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function normalizePaymentStatus(value: unknown): PaymentStatus {
-  const status = String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-
-  if (
-    [
-      "paid",
-      "success",
-      "successful",
-      "settlement",
-      "settled",
-      "completed",
-      "complete",
-      "lunas",
-    ].includes(status)
-  ) {
-    return "paid";
-  }
-
-  if (
-    [
-      "expired",
-      "expire",
-      "timeout",
-    ].includes(status)
-  ) {
-    return "expired";
-  }
-
-  if (
-    [
-      "cancel",
-      "canceled",
-      "cancelled",
-    ].includes(status)
-  ) {
-    return "cancel";
-  }
-
-  if (
-    [
-      "failed",
-      "failure",
-      "error",
-      "deny",
-      "rejected",
-    ].includes(status)
-  ) {
-    return "failed";
-  }
-
-  return "pending";
 }
 
 function isPaymentPaid(status: PaymentStatus): boolean {
@@ -418,6 +353,533 @@ function EmbeddedZakatCalculator({
 }
 
 // ============================================================================
+// DONATION FORM MODAL
+// ============================================================================
+
+interface DonationFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  profile: Profile | null;
+  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
+  amount: string;
+  setAmount: React.Dispatch<React.SetStateAction<string>>;
+  handleDonate: () => Promise<void>;
+  handleInlineSavePhone: () => Promise<void>;
+  submitting: boolean;
+  isLoggedIn: boolean;
+  inlinePhone: string;
+  setInlinePhone: React.Dispatch<React.SetStateAction<string>>;
+  savingPhone: boolean;
+  isZakatProgram: boolean;
+}
+
+function DonationFormModal({
+  isOpen,
+  onClose,
+  profile,
+  setProfile,
+  amount,
+  setAmount,
+  handleDonate,
+  handleInlineSavePhone,
+  submitting,
+  isLoggedIn,
+  inlinePhone,
+  setInlinePhone,
+  savingPhone,
+  isZakatProgram,
+}: DonationFormModalProps) {
+  if (!isOpen) return null;
+
+  const cleanAmountNum = cleanNumber(amount);
+  const currentPhone = normalizePhone(profile?.phone);
+  const hasPhone = Boolean(currentPhone && currentPhone.length >= 9);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Formulir Donasi"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="Tutup formulir"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-none border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
+              BDB.or.id
+            </p>
+            <h2 className="mt-0.5 text-base font-extrabold text-slate-900">
+              Formulir {isZakatProgram ? "Zakat" : "Donasi"}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-none bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+            aria-label="Tutup formulir"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5 text-left">
+          {isZakatProgram && (
+            <div className="mb-2">
+              <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                Kalkulator Zakat Digital
+              </h3>
+              <EmbeddedZakatCalculator
+                onApplyAmount={(val) => setAmount(val)}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
+              Pilih Nominal {isZakatProgram ? "Zakat" : "Donasi"}
+            </label>
+
+            <div className="grid grid-cols-3 gap-2">
+              {PRESET_AMOUNTS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setAmount(value.toLocaleString("id-ID"))
+                  }
+                  className={`rounded-none border px-2 py-3 text-xs font-bold transition ${
+                    cleanAmountNum === value
+                      ? "border-[#0d5c91] bg-sky-50 text-[#0d5c91] shadow-sm ring-1 ring-[#0d5c91]"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Rp{" "}
+                  {value >= 1_000_000
+                    ? `${value / 1_000_000}jt`
+                    : `${value / 1_000}rb`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Masukkan Nominal {isZakatProgram ? "Zakat" : "Donasi"} Lainnya
+            </label>
+
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-sm font-bold text-slate-400">
+                Rp
+              </span>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Min. 1.000"
+                className="w-full rounded-none border border-gray-300 bg-white py-2.5 pl-10 pr-3.5 text-sm font-bold text-slate-900 outline-none focus:border-[#0d5c91] sm:text-base"
+                value={amount}
+                onChange={(e) =>
+                  setAmount(formatRupiahInput(e.target.value))
+                }
+              />
+            </div>
+          </div>
+
+          <hr className="my-2 border-slate-100" />
+
+          {isLoggedIn ? (
+            hasPhone ? (
+              <div className="flex items-center justify-between rounded-none border border-emerald-200/80 bg-emerald-50 p-3.5">
+                <div className="min-w-0 space-y-0.5">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                    Login ✓ {profile?.name ? ` • ${profile.name}` : ""}
+                  </span>
+
+                  <p className="truncate text-xs font-extrabold text-slate-900">
+                    WhatsApp: {profile?.phone}
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-none bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                  Siap Donasi
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-none border border-amber-200 bg-amber-50 p-4">
+                <div>
+                  <span className="mb-0.5 block text-xs font-bold text-amber-900">
+                    Halo, {profile?.name || "Dermawan"}!
+                  </span>
+
+                  <p className="text-[11px] leading-relaxed text-amber-700">
+                    Lengkapi nomor WhatsApp untuk pengiriman kuitansi dan
+                    informasi donasi.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Contoh: 081234567890"
+                    className="min-w-0 flex-1 rounded-none border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-[#0d5c91]"
+                    value={inlinePhone}
+                    onChange={(e) => setInlinePhone(e.target.value)}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleInlineSavePhone}
+                    disabled={savingPhone}
+                    className="shrink-0 rounded-none bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {savingPhone ? "Menyimpan..." : "Simpan"}
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">
+                  Nama Donatur
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Hamba Allah (boleh kosong)"
+                  className="w-full rounded-none border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+                  value={profile?.name || ""}
+                  onChange={(e) =>
+                    setProfile((prev) => ({
+                      ...(prev || {}),
+                      name: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">
+                  Nomor WhatsApp *
+                </label>
+
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Contoh: 081234567890"
+                  className="w-full rounded-none border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+                  value={profile?.phone || ""}
+                  onChange={(e) =>
+                    setProfile((prev) => ({
+                      ...(prev || {}),
+                      phone: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-none border border-sky-100 bg-sky-50 px-3.5 py-3">
+            <div className="flex items-start gap-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0d5c91]" />
+
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Pembayaran menggunakan QRIS. Setelah transaksi dibuat,
+                scan QR yang tampil menggunakan aplikasi bank atau dompet
+                digital Anda.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleDonate()}
+            disabled={submitting || (isLoggedIn && !hasPhone)}
+            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-none bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Membuat QRIS...
+              </>
+            ) : (
+              "LANJUT PEMBAYARAN"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// QRIS PAYMENT MODAL
+// ============================================================================
+
+interface QrisPaymentModalProps {
+  payment: CasakuPayment;
+  countdown: number;
+  checkingStatus: boolean;
+  onClose: () => void;
+  onCheckStatus: () => Promise<void>;
+}
+
+function QrisPaymentModal({
+  payment,
+  countdown,
+  checkingStatus,
+  onClose,
+  onCheckStatus,
+}: QrisPaymentModalProps) {
+  const isPaid = isPaymentPaid(payment.status);
+  const isExpired = payment.status === "expired";
+  const isFailed =
+    payment.status === "failed" || payment.status === "cancel";
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pembayaran QRIS"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="Tutup pembayaran"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-none border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
+              Pembayaran QRIS
+            </p>
+
+            <h2 className="mt-0.5 text-base font-extrabold text-slate-900">
+              {isPaid
+                ? "Pembayaran Berhasil"
+                : "Selesaikan Pembayaran"}
+            </h2>
+          </div>
+
+          {!isPaid && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-none bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+              aria-label="Tutup pembayaran"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-5 p-5">
+          {isPaid ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-emerald-50">
+                <CheckCircle2 className="h-11 w-11 text-emerald-600" />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-900">
+                  Pembayaran Berhasil
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                  Terima kasih. Transaksi Anda telah terverifikasi.
+                </p>
+              </div>
+
+              <div className="border-y border-slate-100 py-4">
+                <p className="text-xs font-medium text-slate-500">
+                  Total Pembayaran
+                </p>
+
+                <p className="mt-1 text-2xl font-extrabold text-emerald-600">
+                  {formatRupiah(payment.totalAmount)}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Mengalihkan ke halaman konfirmasi...
+              </div>
+            </div>
+          ) : isExpired ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-amber-50">
+                <Clock3 className="h-10 w-10 text-amber-600" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  QRIS Kedaluwarsa
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                  Waktu pembayaran telah habis. Tutup halaman ini
+                  lalu buat transaksi baru.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-none bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+              >
+                Buat Pembayaran Baru
+              </button>
+            </div>
+          ) : isFailed ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-red-50">
+                <XCircle className="h-10 w-10 text-red-600" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  Transaksi Dibatalkan
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Silakan buat transaksi QRIS baru untuk melanjutkan.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-none bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+              >
+                Kembali
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="text-xs font-medium text-slate-500">
+                  Total yang harus dibayar
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-[#0d5c91]">
+                  {formatRupiah(payment.totalAmount)}
+                </p>
+
+                {payment.totalAmount !== payment.amount && (
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    Nomor unik termasuk untuk verifikasi pembayaran otomatis.
+                  </p>
+                )}
+              </div>
+
+              <div className="mx-auto flex w-fit items-center justify-center border border-slate-200 bg-white p-4 shadow-sm">
+                <QRCodeSVG
+                  value={payment.qrString}
+                  size={250}
+                  level="M"
+                  includeMargin
+                  bgColor="#ffffff"
+                  fgColor="#111827"
+                />
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs font-bold text-slate-700">
+                  Scan QRIS menggunakan aplikasi pembayaran Anda
+                </p>
+
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  DANA, GoPay, ShopeePay, mobile banking, atau
+                  aplikasi lain yang mendukung QRIS.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-y border-slate-100 py-3">
+                <div className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4 text-amber-600" />
+
+                  <span className="text-xs font-medium text-slate-500">
+                    Berlaku selama
+                  </span>
+                </div>
+
+                <span
+                  className={`font-mono text-sm font-extrabold ${
+                    countdown <= 60
+                      ? "text-red-600"
+                      : "text-amber-600"
+                  }`}
+                >
+                  {countdown > 0
+                    ? formatCountdown(countdown)
+                    : "00:00"}
+                </span>
+              </div>
+
+              <div className="space-y-2 rounded-none border border-sky-100 bg-sky-50 p-4">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#0d5c91]" />
+
+                  <span className="text-xs font-bold text-[#0d5c91]">
+                    Menunggu pembayaran
+                  </span>
+                </div>
+
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Status diperiksa otomatis melalui server.
+                  Jika Anda sudah membayar tetapi status belum
+                  berubah, tekan tombol cek status.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  disabled={checkingStatus}
+                  onClick={() => void onCheckStatus()}
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-none border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      checkingStatus ? "animate-spin" : ""
+                    }`}
+                  />
+
+                  {checkingStatus
+                    ? "Memeriksa..."
+                    : "Cek Status Pembayaran"}
+                </button>
+
+                <p className="text-center font-mono text-[10px] text-slate-400">
+                  ID Pesanan: {payment.orderId}
+                </p>
+
+                <p className="text-center font-mono text-[10px] text-slate-400">
+                  ID Casaku: {payment.transactionId}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -475,13 +937,11 @@ export default function CampaignDetailClient({
   const handleDonate = async () => {
     setSubmitting(true);
     try {
-      // Simulasi proses pembuatan pembayaran QRIS
       const numericAmount = cleanNumber(amount);
       if (numericAmount < 1000) {
         alert("Minimum donasi adalah Rp 1.000");
         return;
       }
-      // Logika integrasi pembayaran Anda di sini
       setIsModalOpen(true);
     } finally {
       setSubmitting(false);
