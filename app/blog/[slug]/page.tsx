@@ -32,9 +32,8 @@ const serverClient = createClient({
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-01-01',
   useCdn: false,
-
-  // Jika dataset public sebenarnya token tidak wajib.
-  token: process.env.SANITY_API_TOKEN,
+  // Token dihapus untuk mencegah error "Unauthorized - Session does not match project host"
+  // karena data artikel bersifat publik.
 });
 
 // Artikel selalu dirender dari server.

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, {
@@ -91,12 +90,6 @@ interface CasakuPayment {
   expiredAt?: string | null;
   expiredInMinutes?: number;
 }
-
-type ServerPaymentResult = {
-  status: PaymentStatus;
-  paid: boolean;
-  message?: string;
-};
 
 // ============================================================================
 // CONSTANTS
@@ -262,7 +255,7 @@ function DetailHeader({
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
+          className="flex cursor-pointer items-center justify-center rounded-none border border-white/30 p-2 transition-colors hover:bg-white/10"
           aria-label="Kembali ke halaman sebelumnya"
         >
           <ArrowLeft className="h-5 w-5 text-white" />
@@ -275,7 +268,7 @@ function DetailHeader({
         <button
           type="button"
           onClick={onOpenShare}
-          className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
+          className="flex cursor-pointer items-center justify-center rounded-none border border-white/30 p-2 transition-colors hover:bg-white/10"
           aria-label="Bagikan program"
         >
           <Share2 className="h-5 w-5 text-white" />
@@ -312,17 +305,14 @@ function EmbeddedZakatCalculator({
 
   if (activeTab === "penghasilan") {
     const total = cleanNumber(input1) + cleanNumber(input2);
-
     isWajib = total >= NISHAB_BULANAN;
     totalZakat = isWajib ? Math.round(total * 0.025) : 0;
   } else if (activeTab === "maal") {
     const total = cleanNumber(input1) + cleanNumber(input2);
-
     isWajib = total >= NISHAB_TAHUNAN;
     totalZakat = isWajib ? Math.round(total * 0.025) : 0;
   } else {
     const berat = Number(input1) || 0;
-
     isWajib = berat >= 85;
     totalZakat = isWajib
       ? Math.round(berat * HARGA_EMAS * 0.025)
@@ -335,7 +325,7 @@ function EmbeddedZakatCalculator({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-none border border-slate-200 bg-white shadow-sm">
       <div className="flex border-b border-slate-100 bg-slate-50 text-xs font-extrabold">
         {(
           [
@@ -375,7 +365,7 @@ function EmbeddedZakatCalculator({
               <input
                 type="text"
                 inputMode="numeric"
-                className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+                className="w-full rounded-none border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
                 placeholder="0"
                 value={input1}
                 onChange={(e) =>
@@ -394,7 +384,7 @@ function EmbeddedZakatCalculator({
               <input
                 type="text"
                 inputMode="numeric"
-                className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+                className="w-full rounded-none border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
                 placeholder="0"
                 value={input2}
                 onChange={(e) =>
@@ -413,7 +403,7 @@ function EmbeddedZakatCalculator({
               type="number"
               min="0"
               step="0.01"
-              className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
+              className="w-full rounded-none border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91]"
               placeholder="Contoh: 90"
               value={input1}
               onChange={(e) => setInput1(e.target.value)}
@@ -421,7 +411,7 @@ function EmbeddedZakatCalculator({
           </div>
         )}
 
-        <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/60 p-4 text-center">
+        <div className="space-y-2 rounded-none border border-sky-100 bg-sky-50/60 p-4 text-center">
           <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">
             Estimasi Zakat Wajib
           </span>
@@ -448,7 +438,7 @@ function EmbeddedZakatCalculator({
             onClick={() =>
               onApplyAmount(totalZakat.toLocaleString("id-ID"))
             }
-            className="w-full cursor-pointer rounded-xl bg-[#0d5c91] py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="w-full cursor-pointer rounded-none bg-[#0d5c91] py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             Gunakan Nominal Ini di Form
           </button>
@@ -459,10 +449,12 @@ function EmbeddedZakatCalculator({
 }
 
 // ============================================================================
-// DONATION FORM FIELDS
+// DONATION FORM MODAL (FORMULIR DONASI POP-UP)
 // ============================================================================
 
-interface DonationFormFieldsProps {
+interface DonationFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
   profile: Profile | null;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   amount: string;
@@ -477,7 +469,9 @@ interface DonationFormFieldsProps {
   isZakatProgram: boolean;
 }
 
-function DonationFormFields({
+function DonationFormModal({
+  isOpen,
+  onClose,
   profile,
   setProfile,
   amount,
@@ -490,187 +484,236 @@ function DonationFormFields({
   setInlinePhone,
   savingPhone,
   isZakatProgram,
-}: DonationFormFieldsProps) {
+}: DonationFormModalProps) {
+  if (!isOpen) return null;
+
   const cleanAmountNum = cleanNumber(amount);
   const currentPhone = normalizePhone(profile?.phone);
   const hasPhone = Boolean(currentPhone && currentPhone.length >= 9);
 
   return (
-    <div className="space-y-4 text-left">
-      <div>
-        <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
-          Pilih Nominal {isZakatProgram ? "Zakat" : "Donasi"}
-        </label>
-
-        <div className="grid grid-cols-3 gap-2">
-          {PRESET_AMOUNTS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() =>
-                setAmount(value.toLocaleString("id-ID"))
-              }
-              className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${
-                cleanAmountNum === value
-                  ? "border-[#0d5c91] bg-sky-50 text-[#0d5c91] shadow-sm ring-1 ring-[#0d5c91]"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              Rp{" "}
-              {value >= 1_000_000
-                ? `${value / 1_000_000}jt`
-                : `${value / 1_000}rb`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-semibold text-slate-600">
-          Masukkan Nominal {isZakatProgram ? "Zakat" : "Donasi"} Lainnya
-        </label>
-
-        <div className="relative flex items-center">
-          <span className="absolute left-3.5 text-sm font-bold text-slate-400">
-            Rp
-          </span>
-
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Min. 1.000"
-            className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-10 pr-3.5 text-sm font-bold text-slate-900 outline-none focus:border-[#0d5c91] sm:text-base"
-            value={amount}
-            onChange={(e) =>
-              setAmount(formatRupiahInput(e.target.value))
-            }
-          />
-        </div>
-      </div>
-
-      <hr className="my-2 border-slate-100" />
-
-      {isLoggedIn ? (
-        hasPhone ? (
-          <div className="flex items-center justify-between rounded-xl border border-emerald-200/80 bg-emerald-50 p-3.5">
-            <div className="min-w-0 space-y-0.5">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-800">
-                Login ✓ {profile?.name ? ` • ${profile.name}` : ""}
-              </span>
-
-              <p className="truncate text-xs font-extrabold text-slate-900">
-                WhatsApp: {profile?.phone}
-              </p>
-            </div>
-
-            <span className="shrink-0 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
-              Siap Donasi
-            </span>
-          </div>
-        ) : (
-          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <div>
-              <span className="mb-0.5 block text-xs font-bold text-amber-900">
-                Halo, {profile?.name || "Dermawan"}!
-              </span>
-
-              <p className="text-[11px] leading-relaxed text-amber-700">
-                Lengkapi nomor WhatsApp untuk pengiriman kuitansi dan
-                informasi donasi.
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                inputMode="tel"
-                placeholder="Contoh: 081234567890"
-                className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-[#0d5c91]"
-                value={inlinePhone}
-                onChange={(e) => setInlinePhone(e.target.value)}
-              />
-
-              <button
-                type="button"
-                onClick={handleInlineSavePhone}
-                disabled={savingPhone}
-                className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50"
-              >
-                {savingPhone ? "Menyimpan..." : "Simpan"}
-              </button>
-            </div>
-          </div>
-        )
-      ) : (
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Nama Donatur
-            </label>
-
-            <input
-              type="text"
-              placeholder="Hamba Allah (boleh kosong)"
-              className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
-              value={profile?.name || ""}
-              onChange={(e) =>
-                setProfile((prev) => ({
-                  ...(prev || {}),
-                  name: e.target.value,
-                }))
-              }
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Nomor WhatsApp *
-            </label>
-
-            <input
-              type="tel"
-              inputMode="tel"
-              placeholder="Contoh: 081234567890"
-              className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
-              value={profile?.phone || ""}
-              onChange={(e) =>
-                setProfile((prev) => ({
-                  ...(prev || {}),
-                  phone: e.target.value,
-                }))
-              }
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-xl border border-sky-100 bg-sky-50 px-3.5 py-3">
-        <div className="flex items-start gap-2">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0d5c91]" />
-
-          <p className="text-[11px] leading-relaxed text-slate-600">
-            Pembayaran menggunakan QRIS. Setelah transaksi dibuat,
-            scan QR yang tampil menggunakan aplikasi bank atau dompet
-            digital Anda.
-          </p>
-        </div>
-      </div>
-
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Formulir Donasi"
+    >
       <button
         type="button"
-        onClick={() => void handleDonate()}
-        disabled={submitting || (isLoggedIn && !hasPhone)}
-        className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base"
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Membuat QRIS...
-          </>
-        ) : (
-          "LANJUT PEMBAYARAN"
-        )}
-      </button>
+        className="absolute inset-0 cursor-default"
+        aria-label="Tutup formulir"
+        onClick={onClose}
+      />
+
+      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-none border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
+              BDB.or.id
+            </p>
+            <h2 className="mt-0.5 text-base font-extrabold text-slate-900">
+              Formulir {isZakatProgram ? "Zakat" : "Donasi"}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-none bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+            aria-label="Tutup formulir"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5 text-left">
+          {isZakatProgram && (
+            <div className="mb-2">
+              <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                Kalkulator Zakat Digital
+              </h3>
+              <EmbeddedZakatCalculator
+                onApplyAmount={(val) => setAmount(val)}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
+              Pilih Nominal {isZakatProgram ? "Zakat" : "Donasi"}
+            </label>
+
+            <div className="grid grid-cols-3 gap-2">
+              {PRESET_AMOUNTS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setAmount(value.toLocaleString("id-ID"))
+                  }
+                  className={`rounded-none border px-2 py-3 text-xs font-bold transition ${
+                    cleanAmountNum === value
+                      ? "border-[#0d5c91] bg-sky-50 text-[#0d5c91] shadow-sm ring-1 ring-[#0d5c91]"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Rp{" "}
+                  {value >= 1_000_000
+                    ? `${value / 1_000_000}jt`
+                    : `${value / 1_000}rb`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">
+              Masukkan Nominal {isZakatProgram ? "Zakat" : "Donasi"} Lainnya
+            </label>
+
+            <div className="relative flex items-center">
+              <span className="absolute left-3.5 text-sm font-bold text-slate-400">
+                Rp
+              </span>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Min. 1.000"
+                className="w-full rounded-none border border-gray-300 bg-white py-2.5 pl-10 pr-3.5 text-sm font-bold text-slate-900 outline-none focus:border-[#0d5c91] sm:text-base"
+                value={amount}
+                onChange={(e) =>
+                  setAmount(formatRupiahInput(e.target.value))
+                }
+              />
+            </div>
+          </div>
+
+          <hr className="my-2 border-slate-100" />
+
+          {isLoggedIn ? (
+            hasPhone ? (
+              <div className="flex items-center justify-between rounded-none border border-emerald-200/80 bg-emerald-50 p-3.5">
+                <div className="min-w-0 space-y-0.5">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                    Login ✓ {profile?.name ? ` • ${profile.name}` : ""}
+                  </span>
+
+                  <p className="truncate text-xs font-extrabold text-slate-900">
+                    WhatsApp: {profile?.phone}
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-none bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                  Siap Donasi
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-none border border-amber-200 bg-amber-50 p-4">
+                <div>
+                  <span className="mb-0.5 block text-xs font-bold text-amber-900">
+                    Halo, {profile?.name || "Dermawan"}!
+                  </span>
+
+                  <p className="text-[11px] leading-relaxed text-amber-700">
+                    Lengkapi nomor WhatsApp untuk pengiriman kuitansi dan
+                    informasi donasi.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Contoh: 081234567890"
+                    className="min-w-0 flex-1 rounded-none border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-[#0d5c91]"
+                    value={inlinePhone}
+                    onChange={(e) => setInlinePhone(e.target.value)}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleInlineSavePhone}
+                    disabled={savingPhone}
+                    className="shrink-0 rounded-none bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {savingPhone ? "Menyimpan..." : "Simpan"}
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">
+                  Nama Donatur
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Hamba Allah (boleh kosong)"
+                  className="w-full rounded-none border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+                  value={profile?.name || ""}
+                  onChange={(e) =>
+                    setProfile((prev) => ({
+                      ...(prev || {}),
+                      name: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">
+                  Nomor WhatsApp *
+                </label>
+
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Contoh: 081234567890"
+                  className="w-full rounded-none border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+                  value={profile?.phone || ""}
+                  onChange={(e) =>
+                    setProfile((prev) => ({
+                      ...(prev || {}),
+                      phone: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-none border border-sky-100 bg-sky-50 px-3.5 py-3">
+            <div className="flex items-start gap-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0d5c91]" />
+
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                Pembayaran menggunakan QRIS. Setelah transaksi dibuat,
+                scan QR yang tampil menggunakan aplikasi bank atau dompet
+                digital Anda.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleDonate()}
+            disabled={submitting || (isLoggedIn && !hasPhone)}
+            className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-none bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Membuat QRIS...
+              </>
+            ) : (
+              "LANJUT PEMBAYARAN"
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -713,7 +756,7 @@ function QrisPaymentModal({
         onClick={onClose}
       />
 
-      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
+      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-none border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
@@ -731,7 +774,7 @@ function QrisPaymentModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+              className="flex h-9 w-9 items-center justify-center rounded-none bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
               aria-label="Tutup pembayaran"
             >
               ×
@@ -742,7 +785,7 @@ function QrisPaymentModal({
         <div className="space-y-5 p-5">
           {isPaid ? (
             <div className="space-y-4 py-8 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-emerald-50">
                 <CheckCircle2 className="h-11 w-11 text-emerald-600" />
               </div>
 
@@ -773,7 +816,7 @@ function QrisPaymentModal({
             </div>
           ) : isExpired ? (
             <div className="space-y-4 py-8 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-50">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-amber-50">
                 <Clock3 className="h-10 w-10 text-amber-600" />
               </div>
 
@@ -791,14 +834,14 @@ function QrisPaymentModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-xl bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+                className="w-full rounded-none bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
               >
                 Buat Pembayaran Baru
               </button>
             </div>
           ) : isFailed ? (
             <div className="space-y-4 py-8 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-none bg-red-50">
                 <XCircle className="h-10 w-10 text-red-600" />
               </div>
 
@@ -815,7 +858,7 @@ function QrisPaymentModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-xl bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+                className="w-full rounded-none bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
               >
                 Kembali
               </button>
@@ -833,8 +876,7 @@ function QrisPaymentModal({
 
                 {payment.totalAmount !== payment.amount && (
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                    Nominal termasuk kode unik untuk verifikasi
-                    pembayaran otomatis.
+                    Nomor unik termasuk untuk verifikasi pembayaran otomatis.
                   </p>
                 )}
               </div>
@@ -883,7 +925,7 @@ function QrisPaymentModal({
                 </span>
               </div>
 
-              <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50 p-4">
+              <div className="space-y-2 rounded-none border border-sky-100 bg-sky-50 p-4">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-[#0d5c91]" />
 
@@ -904,7 +946,7 @@ function QrisPaymentModal({
                   type="button"
                   disabled={checkingStatus}
                   onClick={() => void onCheckStatus()}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-none border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${
@@ -957,7 +999,6 @@ export default function CampaignDetailClient({
   const [submitting, setSubmitting] = useState(false);
   const [inlinePhone, setInlinePhone] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
-  const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
 
   const programTitleLower = (program.title || "").toLowerCase();
   const programCategoryLower = (program.category || "").toLowerCase();
@@ -975,7 +1016,6 @@ export default function CampaignDetailClient({
   const [countdown, setCountdown] = useState<number>(900);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
-  // Mencegah polling bertumpuk dan mengatur redirect.
   const pollingRef = useRef(false);
   const redirectRef = useRef(false);
   const paymentRef = useRef<CasakuPayment | null>(null);
@@ -1032,7 +1072,6 @@ export default function CampaignDetailClient({
     };
   }, [initialProfile]);
 
-  // Sinkronisasi ref agar callback polling selalu membaca transaksi terbaru.
   useEffect(() => {
     paymentRef.current = payment;
   }, [payment]);
@@ -1044,8 +1083,10 @@ export default function CampaignDetailClient({
   const handleInlineSavePhone = async () => {
     const cleanPhone = normalizePhone(inlinePhone);
 
-    if (cleanPhone.length < 9 || cleanPhone.length > 15) {
-      alert("Nomor WhatsApp tidak valid.");
+    if (cleanPhone.length < 9) {
+      alert(
+        "Nomor WhatsApp tidak valid. Masukkan nomor yang benar (min. 9 digit)."
+      );
       return;
     }
 
@@ -1057,7 +1098,8 @@ export default function CampaignDetailClient({
       } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        throw new Error("Sesi login tidak ditemukan.");
+        alert("Sesi login berakhir. Silakan login kembali.");
+        return;
       }
 
       const { error } = await supabase.auth.updateUser({
@@ -1067,23 +1109,21 @@ export default function CampaignDetailClient({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setProfile((prev) => ({
-        ...(prev || {}),
-        phone: cleanPhone,
-      }));
+      setProfile((prev) =>
+        prev ? { ...prev, phone: cleanPhone } : null
+      );
 
-      setInlinePhone(cleanPhone);
-
+      setInlinePhone("");
       alert("Nomor WhatsApp berhasil disimpan!");
-    } catch (error) {
-      console.error("Gagal menyimpan nomor:", error);
-
+    } catch (error: any) {
+      console.error("Gagal menyimpan nomor WhatsApp:", error);
       alert(
-        error instanceof Error
-          ? error.message
-          : "Gagal menyimpan nomor."
+        error?.message ||
+          "Gagal menyimpan nomor WhatsApp. Silakan coba lagi."
       );
     } finally {
       setSavingPhone(false);
@@ -1091,140 +1131,103 @@ export default function CampaignDetailClient({
   };
 
   // ========================================================================
-  // BUAT TRANSAKSI DONASI
+  // BUAT DONASI & QRIS
   // ========================================================================
 
   const handleDonate = async () => {
-    if (submitting) return;
-
     const numericAmount = cleanNumber(amount);
 
-    if (numericAmount < 1000) {
-      alert("Minimum nominal adalah Rp 1.000");
+    if (numericAmount < 1_000) {
+      alert("Minimum donasi adalah Rp 1.000");
       return;
     }
 
-    const phoneToCheck = normalizePhone(
-      profile?.phone || inlinePhone
-    );
+    const phoneToCheck = isLoggedIn
+      ? profile?.phone
+      : profile?.phone;
 
-    const isValidPhone =
-      phoneToCheck.length >= 9 &&
-      phoneToCheck.length <= 15 &&
-      (
-        phoneToCheck.startsWith("0") ||
-        phoneToCheck.startsWith("62") ||
-        phoneToCheck.startsWith("8")
+    const cleanUserPhone = normalizePhone(phoneToCheck);
+
+    if (!cleanUserPhone || cleanUserPhone.length < 9) {
+      alert(
+        "Nomor WhatsApp wajib diisi dengan benar untuk pengiriman kuitansi dan status donasi."
       );
-
-    if (!isValidPhone) {
-      alert("Nomor WhatsApp wajib diisi dengan benar.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/donate", {
+      const response = await fetch("/api/donate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          programId: program._id || program.id,
+          campaignSlug: slug,
+          campaignId: program._id || program.id,
+          campaignTitle: program.title,
           amount: numericAmount,
-          donorName: profile?.name || "Hamba Allah",
-          phone: phoneToCheck,
+          donorName:
+            profile?.name?.trim() || "Hamba Allah",
+          donorPhone: cleanUserPhone,
           donorEmail: profile?.email || "",
-          fundraiserPhone: referral || "",
-          programTitle: program.title,
-          category: program.category,
-          slug: program.slug || slug,
+          referral: referral || "",
         }),
       });
 
-      const json = await res.json();
+      const json = await response.json();
 
-      if (!res.ok || !json.success) {
-        throw new Error(getApiErrorMessage(json));
-      }
-
-      const orderId = String(json.orderId || "").trim();
-      const transactionId = String(
-        json.transactionId || ""
-      ).trim();
-
-      const qrString = String(
-        json.qrString ||
-        json.qr_string ||
-        json.qrCode ||
-        json.qr_code ||
-        ""
-      ).trim();
-
-      if (!orderId) {
+      if (!response.ok || !json.success) {
         throw new Error(
-          "Server tidak mengembalikan ID pesanan."
+          json.message ||
+            json.error ||
+            "Gagal membuat transaksi pembayaran."
         );
       }
 
-      if (!qrString) {
-        throw new Error(
-          "QRIS tidak ditemukan dalam respons server."
-        );
-      }
-
-      const newPayment: CasakuPayment = {
-        orderId,
-        transactionId: transactionId || orderId,
-        amount: cleanNumber(json.amount) || numericAmount,
+      const paymentData: CasakuPayment = {
+        orderId: json.orderId || json.data?.orderId,
+        transactionId:
+          json.transactionId ||
+          json.data?.transactionId ||
+          json.data?.casakuTransactionId,
+        amount: numericAmount,
         totalAmount:
-          cleanNumber(
-            json.totalAmount ??
-            json.paymentAmount ??
-            json.payment_amount
-          ) || numericAmount,
-        qrString,
-        status: normalizePaymentStatus(json.status),
-        expiredAt:
-          json.expiredAt ||
-          json.expiresAt ||
-          json.expired_at ||
-          null,
+          json.totalAmount ||
+          json.data?.totalAmount ||
+          numericAmount,
+        qrString: json.qrString || json.data?.qrString,
+        status: normalizePaymentStatus(
+          json.status || json.data?.status
+        ),
+        expiredAt: json.expiredAt || json.data?.expiredAt,
         expiredInMinutes:
-          cleanNumber(json.expiredInMinutes) ||
+          json.expiredInMinutes ||
+          json.data?.expiredInMinutes ||
           DEFAULT_PAYMENT_MINUTES,
       };
 
-      redirectRef.current = false;
-      setIsDonateModalOpen(false);
-      setPayment(newPayment);
+      if (!paymentData.qrString) {
+        throw new Error(
+          "QR string pembayaran tidak ditemukan dari server."
+        );
+      }
 
-      const expiryTime =
-        getPaymentExpiryTimestamp(newPayment);
-
-      setCountdown(
-        Math.max(
-          0,
-          Math.floor((expiryTime - Date.now()) / 1000)
-        )
+      const expiryMs = getPaymentExpiryTimestamp(paymentData);
+      const remainingSeconds = Math.max(
+        1,
+        Math.floor((expiryMs - Date.now()) / 1000)
       );
 
-      // Jika API pembuatan transaksi sudah menyatakan paid,
-      // jangan menunggu polling berikutnya.
-      if (isPaymentPaid(newPayment.status)) {
-        setTimeout(() => {
-          window.location.href =
-            `/thank-you?order_id=${encodeURIComponent(orderId)}`;
-        }, 1500);
-      }
-    } catch (error) {
-      console.error("Gagal membuat transaksi:", error);
-
+      setPayment(paymentData);
+      setCountdown(remainingSeconds);
+      setIsFormModalOpen(false); // Tutup modal formulir, tampilkan QRIS
+    } catch (error: any) {
+      console.error("Gagal membuat donasi:", error);
       alert(
-        error instanceof Error
-          ? error.message
-          : "Terjadi kesalahan sistem."
+        error?.message ||
+          "Terjadi kesalahan saat memproses donasi. Silakan coba lagi."
       );
     } finally {
       setSubmitting(false);
@@ -1232,599 +1235,370 @@ export default function CampaignDetailClient({
   };
 
   // ========================================================================
-  // COUNTDOWN
+  // CEK STATUS PEMBAYARAN
   // ========================================================================
 
-  useEffect(() => {
-    if (!payment || isPaymentTerminal(payment.status)) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setCountdown((previous) => Math.max(0, previous - 1));
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [payment?.orderId, payment?.status]);
-
-  // ========================================================================
-  // CEK STATUS KE SERVER
-  // ========================================================================
-
-  const checkPaymentStatus = useCallback(
-    async (
-      targetOrderId: string
-    ): Promise<ServerPaymentResult> => {
-      try {
-        const res = await fetch(
-          `/api/donation/status?orderId=${encodeURIComponent(targetOrderId)}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            headers: {
-              Accept: "application/json",
-            },
-          }
-        );
-
-        const json = await res.json();
-
-        if (!res.ok || !json.success) {
-          console.error(
-            "Respons pemeriksaan pembayaran:",
-            json
-          );
-
-          return {
-            status: "pending",
-            paid: false,
-            message: getApiErrorMessage(json),
-          };
-        }
-
-        // Mendukung bentuk respons:
-        // { transaction: { status: "success" } }
-        // { transaction: { paymentStatus: "paid" } }
-        // { transaction: { payment_status: "settlement" } }
-        // { status: "paid" }
-        const transaction = json.transaction || json.data || {};
-
-        const rawStatus =
-          transaction.status ??
-          transaction.paymentStatus ??
-          transaction.payment_status ??
-          transaction.transactionStatus ??
-          json.status;
-
-        const normalizedStatus =
-          normalizePaymentStatus(rawStatus);
-
-        const paid =
-          json.paid === true ||
-          transaction.paid === true ||
-          transaction.paymentVerified === true ||
-          transaction.payment_verified === true ||
-          isPaymentPaid(normalizedStatus);
-
-        if (paid) {
-          return {
-            status: "paid",
-            paid: true,
-          };
-        }
-
-        return {
-          status: normalizedStatus,
-          paid: false,
-        };
-      } catch (error) {
-        console.error(
-          "Gagal memeriksa status pembayaran:",
-          error
-        );
-
-        return {
-          status: "pending",
-          paid: false,
-        };
-      }
-    },
-    []
-  );
-
-  // ========================================================================
-  // PROSES PEMBAYARAN BERHASIL
-  // ========================================================================
-
-  const handlePaymentSuccess = useCallback(
-    (orderId: string) => {
-      setPayment((previous) => {
-        if (!previous || previous.orderId !== orderId) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          status: "paid",
-        };
-      });
-
-      if (redirectRef.current) return;
-
-      redirectRef.current = true;
-
-      window.setTimeout(() => {
-        window.location.href =
-          `/thank-you?order_id=${encodeURIComponent(orderId)}`;
-      }, 1500);
-    },
-    []
-  );
-
-  // ========================================================================
-  // POLLING OTOMATIS
-  // ========================================================================
-
-  useEffect(() => {
-    if (!payment || isPaymentTerminal(payment.status)) {
-      return;
-    }
-
-    let cancelled = false;
-    let timeoutId: number | undefined;
-
-    const poll = async () => {
-      if (cancelled || pollingRef.current) return;
-
-      const currentPayment = paymentRef.current;
-
-      if (
-        !currentPayment ||
-        currentPayment.orderId !== payment.orderId ||
-        isPaymentTerminal(currentPayment.status)
-      ) {
-        return;
-      }
-
-      pollingRef.current = true;
-
-      try {
-        const result = await checkPaymentStatus(
-          currentPayment.orderId
-        );
-
-        if (cancelled) return;
-
-        if (result.paid) {
-          handlePaymentSuccess(currentPayment.orderId);
-          return;
-        }
-
-        // Status gagal hanya diubah jika server secara eksplisit
-        // mengembalikan status terminal.
-        if (
-          result.status === "expired" ||
-          result.status === "failed" ||
-          result.status === "cancel"
-        ) {
-          setPayment((previous) => {
-            if (
-              !previous ||
-              previous.orderId !== currentPayment.orderId
-            ) {
-              return previous;
-            }
-
-            return {
-              ...previous,
-              status: result.status,
-            };
-          });
-
-          return;
-        }
-      } finally {
-        pollingRef.current = false;
-      }
-
-      if (!cancelled) {
-        timeoutId = window.setTimeout(
-          poll,
-          STATUS_POLL_INTERVAL
-        );
-      }
-    };
-
-    timeoutId = window.setTimeout(poll, 500);
-
-    return () => {
-      cancelled = true;
-
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [
-    payment?.orderId,
-    payment?.status,
-    checkPaymentStatus,
-    handlePaymentSuccess,
-  ]);
-
-  // ========================================================================
-  // CEK STATUS MANUAL
-  // ========================================================================
-
-  const handleManualCheckStatus = async () => {
+  const checkPaymentStatusManual = useCallback(async () => {
     const currentPayment = paymentRef.current;
+    if (!currentPayment || !currentPayment.orderId) return;
 
-    if (!currentPayment || checkingStatus) return;
+    if (
+      redirectRef.current ||
+      isPaymentPaid(currentPayment.status)
+    ) {
+      return;
+    }
 
     setCheckingStatus(true);
 
     try {
-      const result = await checkPaymentStatus(
-        currentPayment.orderId
+      const response = await fetch(
+        `/api/donate/status?orderId=${encodeURIComponent(
+          currentPayment.orderId
+        )}`
       );
 
-      if (result.paid) {
-        handlePaymentSuccess(currentPayment.orderId);
-        return;
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(json));
       }
 
-      if (
-        result.status === "expired" ||
-        result.status === "failed" ||
-        result.status === "cancel"
-      ) {
-        setPayment((previous) => {
-          if (!previous) return previous;
-
-          return {
-            ...previous,
-            status: result.status,
-          };
-        });
-
-        return;
-      }
-
-      alert(
-        "Pembayaran belum terdeteksi lunas oleh server. Jika Anda sudah membayar, tunggu beberapa saat lalu periksa kembali."
+      const remoteStatus = normalizePaymentStatus(
+        json.status || json.data?.status
       );
+
+      const isPaid = isPaymentPaid(remoteStatus);
+
+      setPayment((prev) =>
+        prev ? { ...prev, status: remoteStatus } : null
+      );
+
+      if (isPaid && !redirectRef.current) {
+        redirectRef.current = true;
+        pollingRef.current = false;
+
+        const successSlug = slug;
+        const successOrder = currentPayment.orderId;
+
+        setTimeout(() => {
+          router.push(
+            `/campaign/${successSlug}/success?orderId=${encodeURIComponent(
+              successOrder
+            )}`
+          );
+        }, 1200);
+      }
+    } catch (error) {
+      console.error("Gagal memeriksa status pembayaran:", error);
     } finally {
       setCheckingStatus(false);
     }
-  };
+  }, [slug, router]);
 
   // ========================================================================
-  // DATA PROGRAM
+  // POLLING & COUNTDOWN EFFECT
   // ========================================================================
 
-  const donorList = Array.isArray(program.donors)
-    ? program.donors
-    : [];
+  useEffect(() => {
+    if (!payment) return;
 
-  const reportList = Array.isArray(program.reports)
-    ? program.reports
-    : [];
+    const currentStatus = payment.status;
 
-  // ========================================================================
-  // RENDER
-  // ========================================================================
+    if (
+      isPaymentTerminal(currentStatus) ||
+      redirectRef.current
+    ) {
+      return;
+    }
+
+    pollingRef.current = true;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setPayment((curr) =>
+            curr ? { ...curr, status: "expired" } : null
+          );
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const pollInterval = setInterval(() => {
+      if (
+        !pollingRef.current ||
+        redirectRef.current ||
+        !paymentRef.current
+      ) {
+        return;
+      }
+
+      const st = paymentRef.current.status;
+      if (isPaymentTerminal(st)) {
+        clearInterval(pollInterval);
+        return;
+      }
+
+      void checkPaymentStatusManual();
+    }, STATUS_POLL_INTERVAL);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(pollInterval);
+      pollingRef.current = false;
+    };
+  }, [payment?.orderId, checkPaymentStatusManual]);
+
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
-      <DetailHeader
-        title={program.title || "Detail Program"}
-        onOpenShare={() => {
-          const shareData = {
-            title: program.title || "Program Donasi",
-            url: window.location.href,
-          };
+    <div className="min-h-screen bg-neutral-100 flex justify-center text-neutral-900 antialiased">
+      <div className="w-full max-w-md bg-white min-h-screen border-x border-neutral-200 shadow-sm rounded-none relative flex flex-col pb-20">
+        <DetailHeader
+          title={program.title || "Program Donasi"}
+          onOpenShare={() => {
+            if (navigator.share) {
+              navigator
+                .share({
+                  title: program.title,
+                  url: window.location.href,
+                })
+                .catch(() => {});
+            } else {
+              navigator.clipboard.writeText(
+                window.location.href
+              );
+              alert("Link program berhasil disalin!");
+            }
+          }}
+        />
 
-          if (navigator.share) {
-            void navigator.share(shareData).catch(() => {});
-          } else {
-            void navigator.clipboard
-              .writeText(window.location.href)
-              .then(() => alert("Link program berhasil disalin!"))
-              .catch(() => alert("Gagal menyalin link."));
-          }
-        }}
-      />
-
-      <main className="mx-auto max-w-md space-y-4 p-4">
-        {/* GAMBAR UTAMA PROGRAM */}
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {program.image && (
-            <div className="relative aspect-[16/9] w-full bg-slate-100">
-              <img
-                src={program.image}
-                alt={program.title || "Program donasi"}
-                className="h-full w-full object-cover"
-              />
+        {/* GAMBAR PROGRAM */}
+        <div className="relative w-full aspect-[16/9] bg-neutral-900 overflow-hidden rounded-none">
+          {program.image ? (
+            <img
+              src={program.image}
+              alt={program.title || "Program Donasi"}
+              className="w-full h-full object-cover rounded-none"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-sky-900 text-white font-bold">
+              BDB.or.id
             </div>
           )}
+        </div>
 
-          <div className="space-y-3 p-4">
-            <h1 className="text-xl font-extrabold leading-snug text-slate-900">
+        {/* KONTEN UTAMA */}
+        <div className="p-4 space-y-4 flex-1">
+          <div>
+            <h1 className="text-lg font-extrabold text-slate-900 leading-snug">
               {program.title}
             </h1>
 
-            <ViewCounter slug={slug} type="campaign" />
-          </div>
-        </div>
+            <div className="mt-2 flex items-center gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <ViewCounter slug={slug} /> dibaca
+              </span>
 
-        {/* PEROLEHAN DAN TARGET */}
-
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div>
-            <span className="text-2xl font-black text-[#0d5c91]">
-              {formatRupiah(collectedNum)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-slate-500">
-              Terkumpul dari{" "}
-              <strong className="text-slate-800">
-                {program.targetAmount
-                  ? formatRupiah(targetNum)
-                  : "Rp 50.000.000"}
-              </strong>
-            </span>
-
-            <span className="rounded bg-sky-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#0d5c91]">
-              Mendesak
-            </span>
+              {program.category && (
+                <span className="rounded-none bg-sky-50 px-2 py-0.5 font-bold text-[#0d5c91]">
+                  {program.category}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="absolute left-0 top-0 h-full rounded-full bg-[#e91e63] transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-        </div>
+          {/* TARGET DANA */}
+          <div className="space-y-2.5 rounded-none border border-slate-200 p-4 bg-white shadow-xs">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <span className="text-xs text-slate-500 block font-medium">
+                  Terkumpul dari {formatRupiah(targetNum)}
+                </span>
+                <span className="text-xl font-black text-[#0d5c91]">
+                  {formatRupiah(collectedNum)}
+                </span>
+              </div>
 
-        {/* KALKULATOR ZAKAT */}
-
-        {isZakatProgram && (
-          <div className="space-y-2">
-            <div className="px-1">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
-                Kalkulator Zakat Interaktif
-              </h3>
-
-              <p className="text-[11px] text-slate-400">
-                Hitung kewajiban zakat Anda dengan mudah dan akurat.
-              </p>
+              {percentage >= 100 && (
+                <span className="rounded-none bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">
+                  Tercapai
+                </span>
+              )}
             </div>
 
-            <EmbeddedZakatCalculator
-              onApplyAmount={(value) => {
-                setAmount(value);
-                setIsDonateModalOpen(true);
-              }}
-            />
-          </div>
-        )}
+            <div className="h-2.5 w-full bg-slate-100 overflow-hidden rounded-none">
+              <div
+                className="h-full bg-[#e91e63] transition-all duration-500 rounded-none"
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
 
-        {/* TAB NAVIGASI */}
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex border-b border-slate-100 text-sm">
-            <button
-              type="button"
-              onClick={() => setActiveTab("cerita")}
-              className={`flex-1 py-3 text-center font-bold transition ${
-                activeTab === "cerita"
-                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Cerita
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("donatur")}
-              className={`flex-1 py-3 text-center font-bold transition ${
-                activeTab === "donatur"
-                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Donatur ({donorList.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("laporan")}
-              className={`flex-1 py-3 text-center font-bold transition ${
-                activeTab === "laporan"
-                  ? "border-b-2 border-[#0d5c91] text-[#0d5c91]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Laporan ({reportList.length})
-            </button>
+            <div className="flex justify-between text-xs font-semibold text-slate-500 pt-1">
+              <span>{percentage}% Tercapai</span>
+              <span>{program.daysLeft ?? 30} Hari Lagi</span>
+            </div>
           </div>
 
-          <div className="p-4">
+          {/* TAB NAVIGASI */}
+          <div className="border-b border-slate-200 flex text-xs font-bold">
+            {(
+              [
+                ["cerita", "Cerita"],
+                ["donatur", `Donatur (${program.donors?.length || 0})`],
+                ["laporan", `Laporan (${program.reports?.length || 0})`],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 pb-3 text-center border-b-2 transition ${
+                  activeTab === tab
+                    ? "border-[#0d5c91] text-[#0d5c91]"
+                    : "border-transparent text-slate-400 hover:text-slate-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ISI TAB DENGAN AUTO PARAGRAF (`prose` & `space-y-3`) */}
+          <div className="py-2 text-slate-700 text-sm leading-relaxed">
             {activeTab === "cerita" && (
-              <div className="space-y-4">
-                <h2 className="text-base font-extrabold text-slate-900">
-                  {program.title}
-                </h2>
-
-                <div className="prose prose-sm max-w-none leading-relaxed text-slate-600">
-                  {program.description ? (
+              <div className="prose prose-sm max-w-none space-y-3">
+                {program.description ? (
+                  Array.isArray(program.description) ? (
                     <PortableText value={program.description} />
                   ) : (
-                    <p>
-                      Salurkan donasi terbaik Anda melalui program ini.
-                    </p>
-                  )}
-                </div>
+                    <div
+                      className="space-y-3"
+                      dangerouslySetInnerHTML={{
+                        __html: String(program.description),
+                      }}
+                    />
+                  )
+                ) : (
+                  <p className="text-slate-400 italic">
+                    Belum ada cerita untuk program ini.
+                  </p>
+                )}
               </div>
             )}
 
             {activeTab === "donatur" && (
               <div className="space-y-3">
-                {donorList.length > 0 ? (
-                  donorList.map((donor, index) => (
+                {program.donors && program.donors.length > 0 ? (
+                  program.donors.map((donor, idx) => (
                     <div
-                      key={index}
-                      className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0"
+                      key={idx}
+                      className="flex items-center justify-between border-b border-slate-100 pb-3"
                     >
                       <div>
-                        <p className="text-xs font-bold text-slate-900">
+                        <p className="font-bold text-slate-800 text-xs">
                           {donor.name || "Hamba Allah"}
                         </p>
-
                         <p className="text-[10px] text-slate-400">
                           {donor.date || "Baru saja"}
                         </p>
                       </div>
-
-                      <span className="text-xs font-extrabold text-emerald-600">
-                        {typeof donor.amount === "number"
-                          ? formatRupiah(donor.amount)
-                          : donor.amount}
+                      <span className="font-extrabold text-xs text-[#0d5c91]">
+                        {formatRupiah(cleanNumber(donor.amount))}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <div className="py-8 text-center text-xs text-slate-400">
-                    Belum ada donatur tercatat. Jadilah yang pertama berdonasi!
-                  </div>
+                  <p className="text-slate-400 text-xs italic py-4 text-center">
+                    Belum ada donatur tercatat. Jadilah yang pertama!
+                  </p>
                 )}
               </div>
             )}
 
             {activeTab === "laporan" && (
               <div className="space-y-3">
-                {reportList.length > 0 ? (
-                  reportList.map((report, index) => (
+                {program.reports && program.reports.length > 0 ? (
+                  program.reports.map((report, idx) => (
                     <div
-                      key={index}
-                      className="space-y-1 rounded-xl border border-slate-100 p-3"
+                      key={idx}
+                      className="border border-slate-200 p-3 rounded-none bg-slate-50 space-y-2"
                     >
-                      <h4 className="text-xs font-bold text-slate-900">
-                        {report.title}
+                      <h4 className="font-bold text-xs text-slate-800">
+                        {report.title || "Laporan Penyaluran"}
                       </h4>
-
                       <p className="text-[10px] text-slate-400">
-                        {report.date}
+                        {report.date || "Terbaru"}
                       </p>
+                      {report.content && (
+                        <div className="text-xs text-slate-600 mt-2 space-y-2">
+                          {Array.isArray(report.content) ? (
+                            <PortableText value={report.content} />
+                          ) : (
+                            String(report.content)
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
-                  <div className="py-8 text-center text-xs text-slate-400">
-                    Belum ada laporan penyaluran untuk program ini.
-                  </div>
+                  <p className="text-slate-400 text-xs italic py-4 text-center">
+                    Belum ada laporan penyaluran dana.
+                  </p>
                 )}
               </div>
             )}
           </div>
         </div>
-      </main>
 
-      {/* STICKY BOTTOM BAR */}
-
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-md">
-        <div className="mx-auto max-w-md">
-          <button
-            type="button"
-            onClick={() => setIsDonateModalOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e91e63] py-3.5 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99]"
-          >
-            <HeartHandshake className="h-5 w-5 text-white" />
-
-            {isZakatProgram
-              ? "TUNAIKAN ZAKAT"
-              : "DONASI SEKARANG"}
-          </button>
-        </div>
-      </div>
-
-      {/* MODAL FORM DONASI */}
-
-      {isDonateModalOpen && (
-        <div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Formulir Donasi"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            aria-label="Tutup formulir"
-            onClick={() => setIsDonateModalOpen(false)}
-          />
-
-          <div className="relative z-10 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:rounded-2xl">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
-                  {isZakatProgram
-                    ? "Formulir Zakat"
-                    : "Formulir Donasi"}
-                </p>
-
-                <h2 className="text-base font-extrabold text-slate-900">
-                  {program.title}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsDonateModalOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
-                aria-label="Tutup"
-              >
-                ×
-              </button>
-            </div>
-
-            <DonationFormFields
-              profile={profile}
-              setProfile={setProfile}
-              amount={amount}
-              setAmount={setAmount}
-              handleDonate={handleDonate}
-              handleInlineSavePhone={handleInlineSavePhone}
-              submitting={submitting}
-              isLoggedIn={isLoggedIn}
-              inlinePhone={inlinePhone}
-              setInlinePhone={setInlinePhone}
-              savingPhone={savingPhone}
-              isZakatProgram={isZakatProgram}
-            />
+        {/* TOMBOL DONASI STICKY DI BAWAH (FIXED/STICKY RAPI TANPA GESER) */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center bg-transparent pointer-events-none">
+          <div className="w-full max-w-md bg-white/95 backdrop-blur-xs border-t border-slate-200 p-4 shadow-lg pointer-events-auto">
+            <button
+              type="button"
+              onClick={() => setIsFormModalOpen(true)}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-none bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99]"
+            >
+              <HeartHandshake className="h-5 w-5" />
+              DONASI SEKARANG
+            </button>
           </div>
         </div>
-      )}
 
-      {/* MODAL QRIS */}
-
-      {payment && (
-        <QrisPaymentModal
-          payment={payment}
-          countdown={countdown}
-          checkingStatus={checkingStatus}
-          onClose={() => {
-            // Menutup modal tidak membatalkan transaksi di server.
-            setPayment(null);
-          }}
-          onCheckStatus={handleManualCheckStatus}
+        {/* MODAL FORMULIR DONASI */}
+        <DonationFormModal
+          isOpen={isFormModalOpen}
+          onClose={() => setIsFormModalOpen(false)}
+          profile={profile}
+          setProfile={setProfile}
+          amount={amount}
+          setAmount={setAmount}
+          handleDonate={handleDonate}
+          handleInlineSavePhone={handleInlineSavePhone}
+          submitting={submitting}
+          isLoggedIn={isLoggedIn}
+          inlinePhone={inlinePhone}
+          setInlinePhone={setInlinePhone}
+          savingPhone={savingPhone}
+          isZakatProgram={isZakatProgram}
         />
-      )}
+
+        {/* MODAL QRIS */}
+        {payment && (
+          <QrisPaymentModal
+            payment={payment}
+            countdown={countdown}
+            checkingStatus={checkingStatus}
+            onClose={() => {
+              setPayment(null);
+            }}
+            onCheckStatus={checkPaymentStatusManual}
+          />
+        )}
+      </div>
     </div>
   );
 }

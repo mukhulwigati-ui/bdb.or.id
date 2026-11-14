@@ -12,11 +12,10 @@ const SITE_URL = (
 ).replace(/\/+$/, '');
 
 const sanityClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '915u7hh1',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ks29gg6v',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-01-01',
   useCdn: false,
-  token: process.env.SANITY_API_TOKEN,
 });
 
 export const dynamic = 'force-dynamic';
@@ -28,16 +27,12 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-
   title: 'Laporan Keuangan | BDB.OR.ID',
-
   description:
     'Laporan keuangan bulanan BDB.OR.ID sebagai bentuk transparansi dan pertanggungjawaban kepada para donatur.',
-
   alternates: {
     canonical: `${SITE_URL}/laporan`,
   },
-
   openGraph: {
     title: 'Laporan Keuangan | BDB.OR.ID',
     description:
@@ -47,7 +42,6 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     type: 'website',
   },
-
   robots: {
     index: true,
     follow: true,
@@ -61,7 +55,7 @@ export const metadata: Metadata = {
 interface Pemasukan {
   _key?: string;
   nama?: string;
-  jumlah?: number;
+  jumlah?: number | string;
   tanggal?: string;
   keterangan?: string;
 }
@@ -69,7 +63,7 @@ interface Pemasukan {
 interface Pengeluaran {
   _key?: string;
   nama?: string;
-  jumlah?: number;
+  jumlah?: number | string;
   tanggal?: string;
   keterangan?: string;
 }
@@ -77,43 +71,32 @@ interface Pengeluaran {
 interface LaporanKeuangan {
   _id: string;
   judul?: string;
-
   bulan?: string;
   tahun?: number;
-
   periode?: string;
-
   bulanHijriah?: string;
-
   keterangan?: string;
-
   pemasukan?: Pemasukan[];
-
   pengeluaran?: Pengeluaran[];
-
   publishedAt?: string;
 }
 
 // ============================================================================
-// FORMAT RUPIAH
+// FORMAT RUPIAH & TANGGAL
 // ============================================================================
 
-function formatRupiah(value?: number) {
+function formatRupiah(value?: number | string) {
+  const numericValue = Number(String(value ?? '').replace(/[^0-9.-]+/g, '')) || 0;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  }).format(numericValue);
 }
-
-// ============================================================================
-// FORMAT TANGGAL
-// ============================================================================
 
 function formatTanggal(date?: string) {
   if (!date) return '-';
-
   try {
     return new Intl.DateTimeFormat('id-ID', {
       day: 'numeric',
@@ -131,11 +114,8 @@ function formatTanggal(date?: string) {
 
 async function getLaporan(): Promise<LaporanKeuangan[]> {
   try {
-    const laporan = await sanityClient.fetch(
-      `
-      *[
-        _type == "laporanKeuangan"
-      ]
+    const laporan = await sanityClient.fetch(`
+      *[ _type == "laporanKeuangan" ]
       | order(tahun desc, periode desc, _createdAt desc) {
         _id,
         judul,
@@ -145,7 +125,6 @@ async function getLaporan(): Promise<LaporanKeuangan[]> {
         bulanHijriah,
         keterangan,
         publishedAt,
-
         pemasukan[]{
           _key,
           nama,
@@ -153,7 +132,6 @@ async function getLaporan(): Promise<LaporanKeuangan[]> {
           tanggal,
           keterangan
         },
-
         pengeluaran[]{
           _key,
           nama,
@@ -162,13 +140,11 @@ async function getLaporan(): Promise<LaporanKeuangan[]> {
           keterangan
         }
       }
-      `
-    );
+    `);
 
     return Array.isArray(laporan) ? laporan : [];
   } catch (error) {
     console.error('🔥 Gagal mengambil laporan keuangan:', error);
-
     return [];
   }
 }
@@ -188,7 +164,7 @@ export default async function LaporanPage() {
 
       <section className="bg-white border-b border-gray-200">
         <div className="w-full max-w-md mx-auto px-4 py-7 text-center">
-          <div className="w-12 h-1 bg-green-700 mx-auto mb-4" />
+          <div className="w-12 h-1 bg-green-700 mx-auto mb-4 rounded-none" />
 
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
             Laporan Keuangan
@@ -207,7 +183,7 @@ export default async function LaporanPage() {
 
       <div className="w-full max-w-md mx-auto px-3 py-5">
         {laporanList.length === 0 ? (
-          <div className="bg-white border border-gray-200 px-4 py-14 text-center">
+          <div className="bg-white border border-gray-200 px-4 py-14 text-center rounded-none shadow-sm">
             <div className="text-4xl mb-3">📊</div>
 
             <h2 className="font-bold text-slate-800">
@@ -215,7 +191,7 @@ export default async function LaporanPage() {
             </h2>
 
             <p className="text-sm text-slate-500 mt-2">
-              Laporan keuangan akan ditampilkan setelah data diterbitkan.
+              Laporan keuangan akan ditampilkan setelah data diterbitkan di Sanity Studio.
             </p>
           </div>
         ) : (
@@ -225,12 +201,14 @@ export default async function LaporanPage() {
               const pengeluaran = laporan.pengeluaran || [];
 
               const totalPemasukan = pemasukan.reduce(
-                (total, item) => total + Number(item.jumlah || 0),
+                (total, item) =>
+                  total + Number(String(item.jumlah ?? '').replace(/[^0-9.-]+/g, '') || 0),
                 0
               );
 
               const totalPengeluaran = pengeluaran.reduce(
-                (total, item) => total + Number(item.jumlah || 0),
+                (total, item) =>
+                  total + Number(String(item.jumlah ?? '').replace(/[^0-9.-]+/g, '') || 0),
                 0
               );
 
@@ -239,7 +217,7 @@ export default async function LaporanPage() {
               return (
                 <article
                   key={laporan._id}
-                  className="bg-white border border-gray-200 shadow-sm"
+                  className="bg-white border border-gray-200 shadow-sm rounded-none overflow-hidden"
                 >
                   {/* ====================================================== */}
                   {/* JUDUL LAPORAN */}
@@ -328,7 +306,7 @@ export default async function LaporanPage() {
                         <table className="w-full min-w-[520px] border-collapse">
                           <thead>
                             <tr className="bg-slate-50 text-[10px] uppercase text-slate-500">
-                              <th className="px-3 py-2.5 text-center border-y border-gray-200">
+                              <th className="px-3 py-2.5 text-center border-y border-gray-200 w-12">
                                 No
                               </th>
 
@@ -414,7 +392,7 @@ export default async function LaporanPage() {
                         <table className="w-full min-w-[520px] border-collapse">
                           <thead>
                             <tr className="bg-slate-50 text-[10px] uppercase text-slate-500">
-                              <th className="px-3 py-2.5 text-center border-y border-gray-200">
+                              <th className="px-3 py-2.5 text-center border-y border-gray-200 w-12">
                                 No
                               </th>
 
@@ -480,7 +458,7 @@ export default async function LaporanPage() {
                   {/* SALDO AKHIR */}
                   {/* ====================================================== */}
 
-                  <div className="border-t-4 border-green-700 bg-slate-900 text-white px-4 py-5">
+                  <div className="border-t-4 border-green-700 bg-slate-900 text-white px-4 py-5 rounded-none">
                     <div className="flex justify-between items-center gap-4">
                       <div>
                         <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">

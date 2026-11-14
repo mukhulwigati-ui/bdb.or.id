@@ -74,14 +74,14 @@ export default function RelatedNews({ currentSlug, category, allNews }: RelatedN
             <a 
               href={`/blog/${postSlug}`} 
               key={post.id || postSlug}
-              className="group flex flex-col space-y-2 bg-transparent rounded-xl overflow-hidden transition-all duration-200"
+              className="group flex flex-col space-y-2 bg-transparent rounded-none overflow-hidden transition-all duration-200"
             >
-              {/* Thumbnail Image */}
-              <div className="rounded-xl overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-sm relative">
+              {/* Thumbnail Image - Diubah menjadi rounded-none agar sudut tajam */}
+              <div className="rounded-none overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-sm relative">
                 <img 
                   src={post.imageUrl || '/images/placeholder.jpg'} 
                   alt={typeof post.title === 'string' ? post.title : 'Wasilah News'} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-cover rounded-none transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
 

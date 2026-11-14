@@ -20,8 +20,15 @@ interface Props {
   }>;
 }
 
+interface CampaignMetadataData {
+  title?: string;
+  description?: unknown;
+  excerpt?: unknown;
+  imageUrl?: string;
+}
+
 // ============================================================================
-// RENDERING CONFIG
+// RENDERING
 // ============================================================================
 
 export const dynamic = "force-dynamic";
@@ -41,12 +48,12 @@ const SITE_NAME = "BDB.or.id";
 const DEFAULT_TITLE = "Program Donasi | bdb.or.id";
 
 const DEFAULT_DESCRIPTION =
-  "Salurkan donasi, infak, sedekah, zakat, dan wakaf terbaik Anda melalui bdb.or.id.";
+  "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui bdb.or.id.";
 
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.jpg`;
 
 // ============================================================================
-// SANITY CLIENT (Tanpa token untuk akses publik agar bebas error Unauthorized)
+// SANITY CLIENT
 // ============================================================================
 
 const sanityMetaClient = createClient({
@@ -61,6 +68,7 @@ const sanityMetaClient = createClient({
   apiVersion: "2026-08-31",
   useCdn: false,
   perspective: "published",
+  token: process.env.SANITY_API_READ_TOKEN,
 });
 
 // ============================================================================
@@ -68,7 +76,10 @@ const sanityMetaClient = createClient({
 // ============================================================================
 
 function toPlainText(value: unknown): string {
-  if (!value) return "";
+  if (!value) {
+    return "";
+  }
+
   if (typeof value === "string") {
     return value
       .replace(/<[^>]*>/g, " ")
@@ -83,11 +94,20 @@ function toPlainText(value: unknown): string {
   if (Array.isArray(value)) {
     return value
       .map((block: any) => {
-        if (block?._type !== "block" || !Array.isArray(block?.children)) {
+        if (
+          block?._type !== "block" ||
+          !Array.isArray(block?.children)
+        ) {
           return "";
         }
+
         return block.children
-          .map((child: any) => (typeof child?.text === "string" ? child.text : ""))
+          .map((child: any) => {
+            if (typeof child?.text === "string") {
+              return child.text;
+            }
+            return "";
+          })
           .join("");
       })
       .filter(Boolean)
@@ -99,33 +119,52 @@ function toPlainText(value: unknown): string {
   return "";
 }
 
-function createMetaDescription(value: unknown, fallback: string): string {
+function createMetaDescription(
+  value: unknown,
+  fallback: string
+): string {
   const plainText = toPlainText(value);
-  if (!plainText) return fallback;
-  if (plainText.length <= 160) return plainText;
+
+  if (!plainText) {
+    return fallback;
+  }
+
+  if (plainText.length <= 160) {
+    return plainText;
+  }
+
   return `${plainText.slice(0, 157).trim()}...`;
 }
 
 function buildSocialImageUrl(sourceImage?: string): string {
-  if (!sourceImage) return DEFAULT_OG_IMAGE;
+  if (!sourceImage) {
+    return DEFAULT_OG_IMAGE;
+  }
+
   let absoluteImage = sourceImage.trim();
 
   if (absoluteImage.startsWith("/")) {
     absoluteImage = `${SITE_URL}${absoluteImage}`;
-  } else if (!absoluteImage.startsWith("http://") && !absoluteImage.startsWith("https://")) {
+  } else if (
+    !absoluteImage.startsWith("http://") &&
+    !absoluteImage.startsWith("https://")
+  ) {
     absoluteImage = `${SITE_URL}/${absoluteImage.replace(/^\/+/, "")}`;
   }
 
   try {
     const url = new URL(absoluteImage);
+
     if (url.hostname === "cdn.sanity.io") {
       url.searchParams.set("w", "1200");
       url.searchParams.set("h", "630");
       url.searchParams.set("fit", "crop");
       url.searchParams.set("fm", "jpg");
       url.searchParams.set("q", "85");
+
       return url.toString();
     }
+
     return url.toString();
   } catch {
     return DEFAULT_OG_IMAGE;
@@ -133,7 +172,7 @@ function buildSocialImageUrl(sourceImage?: string): string {
 }
 
 // ============================================================================
-// FETCH CAMPAIGN DATA (GROQ Query yang Aman Tanpa datetime())
+// GET CAMPAIGN DATA & METADATA
 // ============================================================================
 
 async function getCampaignData(slug: string) {
@@ -166,15 +205,24 @@ async function getCampaignData(slug: string) {
           image.asset->url,
           thumbnail.asset->url,
           banner.asset->url
+        ),
+        "imageUrl": coalesce(
+          mainImage.asset->url,
+          image.asset->url,
+          thumbnail.asset->url,
+          banner.asset->url
         )
       }
     `;
 
-    const campaign = await sanityMetaClient.fetch(query, { slug }, { cache: "no-store" });
-    
+    const campaign = await sanityMetaClient.fetch(
+      query,
+      { slug },
+      { cache: "no-store" }
+    );
+
     if (!campaign) return null;
 
-    // Hitung sisa hari secara aman di sisi JavaScript
     let daysLeft = 30;
     if (campaign.endDate) {
       const diffTime = new Date(campaign.endDate).getTime() - new Date().getTime();
@@ -196,7 +244,13 @@ async function getCampaignData(slug: string) {
 // GENERATE METADATA
 // ============================================================================
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{
+    slug: string;
+  }>;
+}): Promise<Metadata> {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug).trim();
   const encodedSlug = encodeURIComponent(decodedSlug);
@@ -209,19 +263,33 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   let image = DEFAULT_OG_IMAGE;
 
   if (campaign) {
-    if (typeof campaign.title === "string" && campaign.title.trim()) {
+    if (
+      typeof campaign.title === "string" &&
+      campaign.title.trim()
+    ) {
       title = campaign.title.trim();
     }
-    const rawDescription = campaign.excerpt || campaign.description;
-    description = createMetaDescription(rawDescription, `Dukung program ${title} bersama bdb.or.id.`);
+
+    const rawDescription =
+      campaign.excerpt || campaign.description;
+
+    description = createMetaDescription(
+      rawDescription,
+      `Dukung program ${title} bersama bdb.or.id.`
+    );
+
     image = buildSocialImageUrl(campaign.image);
   }
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: { absolute: title },
+    title: {
+      absolute: title,
+    },
     description,
-    alternates: { canonical: campaignUrl },
+    alternates: {
+      canonical: campaignUrl,
+    },
     robots: {
       index: true,
       follow: true,
@@ -240,22 +308,37 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       siteName: SITE_NAME,
       title,
       description,
-      images: [{ url: image, width: 1200, height: 630, alt: title }],
+      images: [
+        {
+          url: image,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [{ url: image, alt: title }],
+      images: [
+        {
+          url: image,
+          alt: title,
+        },
+      ],
     },
   };
 }
 
 // ============================================================================
-// PAGE COMPONENT (DEFAULT EXPORT)
+// PAGE
 // ============================================================================
 
-export default async function CampaignPage({ params, searchParams }: Props) {
+export default async function CampaignPage({
+  params,
+  searchParams,
+}: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;
 
@@ -267,10 +350,14 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   }
 
   return (
-    <CampaignDetailClient
-      slug={slug}
-      referral={ref ?? null}
-      program={programData}
-    />
+    <main className="min-h-screen bg-neutral-100 flex justify-center text-neutral-900 antialiased">
+      <div className="w-full max-w-md bg-white min-h-screen border-x border-neutral-200 shadow-sm rounded-none relative">
+        <CampaignDetailClient
+          slug={slug}
+          referral={ref ?? null}
+          program={programData}
+        />
+      </div>
+    </main>
   );
 }

@@ -1,5 +1,3 @@
-// app/blog/[slug]/BlogDetailClient.tsx
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -25,13 +23,13 @@ const portableTextComponents = {
 
       return (
         <div className="my-6 min-w-0 w-full max-w-full space-y-2 overflow-hidden">
-          <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200 bg-gray-50">
+          <div className="aspect-[16/9] w-full max-w-full overflow-hidden border border-gray-200 bg-gray-50 rounded-none">
             <img
               src={value.asset.url}
               alt={imageAlt}
               loading="lazy"
               decoding="async"
-              className="block h-full w-full max-w-full object-cover"
+              className="block h-full w-full max-w-full object-cover rounded-none"
             />
           </div>
 
@@ -185,6 +183,7 @@ const portableTextComponents = {
           italic
           leading-relaxed
           text-slate-700
+          rounded-none
         "
       >
         {children}
@@ -439,27 +438,27 @@ export default function BlogDetailClient({
             space-y-4
           "
         >
-          <div className="border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="border border-gray-200 bg-white p-4 sm:p-5 rounded-none">
             <div className="space-y-3">
-              <div className="h-3 w-40 bg-gray-200" />
+              <div className="h-3 w-40 bg-gray-200 rounded-none" />
 
               <div className="space-y-2 pt-2">
-                <div className="h-6 w-full bg-gray-200" />
-                <div className="h-6 w-3/4 bg-gray-200" />
+                <div className="h-6 w-full bg-gray-200 rounded-none" />
+                <div className="h-6 w-3/4 bg-gray-200 rounded-none" />
               </div>
 
               <div className="flex justify-between border-b border-gray-100 pb-3 pt-1">
-                <div className="h-3 w-28 bg-gray-200" />
-                <div className="h-3 w-20 bg-gray-200" />
+                <div className="h-3 w-28 bg-gray-200 rounded-none" />
+                <div className="h-3 w-20 bg-gray-200 rounded-none" />
               </div>
 
-              <div className="aspect-[16/9] w-full bg-gray-200" />
+              <div className="aspect-[16/9] w-full bg-gray-200 rounded-none" />
 
               <div className="space-y-3 pt-2">
-                <div className="h-4 w-full bg-gray-200" />
-                <div className="h-4 w-full bg-gray-200" />
-                <div className="h-4 w-full bg-gray-200" />
-                <div className="h-4 w-2/3 bg-gray-200" />
+                <div className="h-4 w-full bg-gray-200 rounded-none" />
+                <div className="h-4 w-full bg-gray-200 rounded-none" />
+                <div className="h-4 w-full bg-gray-200 rounded-none" />
+                <div className="h-4 w-2/3 bg-gray-200 rounded-none" />
               </div>
             </div>
           </div>
@@ -486,7 +485,7 @@ export default function BlogDetailClient({
             max-w-[calc(28rem-1.5rem)]
           "
         >
-          <div className="border border-gray-200 bg-white px-5 py-10 text-center shadow-sm">
+          <div className="border border-gray-200 bg-white px-5 py-10 text-center shadow-sm rounded-none">
             <div className="mb-3 text-3xl">
               📄
             </div>
@@ -515,6 +514,7 @@ export default function BlogDetailClient({
                 text-[#0d5c91]
                 transition
                 hover:bg-sky-100
+                rounded-none
               "
             >
               ← Kembali ke Berita
@@ -575,19 +575,6 @@ export default function BlogDetailClient({
         pt-4
       "
     >
-      {/* ==================================================================== */}
-      {/* CONTAINER */}
-      {/* ==================================================================== */}
-      {/*
-        PENTING:
-        Lebar container ini dibuat SAMA PERSIS dengan BottomNav:
-
-        w-[calc(100%-1.5rem)]
-        max-w-[calc(28rem-1.5rem)]
-
-        Jadi sisi kiri dan kanan artikel akan sejajar dengan BottomNav.
-      */}
-
       <div
         className="
           mx-auto
@@ -596,10 +583,6 @@ export default function BlogDetailClient({
           space-y-4
         "
       >
-        {/* ================================================================== */}
-        {/* ARTICLE */}
-        {/* ================================================================== */}
-
         <article
           className="
             min-w-0
@@ -613,6 +596,7 @@ export default function BlogDetailClient({
             p-4
             shadow-sm
             sm:p-5
+            rounded-none
           "
         >
           {/* ================================================================ */}
@@ -779,6 +763,7 @@ export default function BlogDetailClient({
                 border
                 border-gray-200/80
                 bg-gray-100
+                rounded-none
               "
             >
               <img
@@ -792,6 +777,7 @@ export default function BlogDetailClient({
                   w-full
                   max-w-full
                   object-cover
+                  rounded-none
                 "
               />
             </div>
@@ -910,6 +896,7 @@ export default function BlogDetailClient({
                 transition
                 hover:bg-sky-100
                 sm:text-sm
+                rounded-none
               "
             >
               {copied
