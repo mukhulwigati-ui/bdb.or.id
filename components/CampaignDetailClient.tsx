@@ -76,6 +76,8 @@ interface Profile {
 interface CampaignDetailClientProps {
   slug: string;
   referral: string | null;
+  program?: Program;
+  initialProfile?: Profile | null;
 }
 
 type PaymentStatus =
@@ -155,7 +157,7 @@ const PRESET_AMOUNTS = [
 
 const STATUS_POLL_INTERVAL = 3000;
 
-const SITE_URL = "https://www.islami.or.id";
+const SITE_URL = "https://www.bdb.or.id";
 
 // ============================================================================
 // HELPERS
@@ -311,7 +313,9 @@ function normalizePaymentStatus(
 
   if (
     status === "paid" ||
-    status === "success"
+    status === "success" ||
+    status === "settlement" ||
+    status === "lunas"
   ) {
     return "paid";
   }
@@ -338,6 +342,15 @@ function normalizePaymentStatus(
   }
 
   return "pending";
+}
+
+function isPaymentPaid(
+  status: PaymentStatus
+): boolean {
+  return (
+    status === "paid" ||
+    status === "success"
+  );
 }
 
 // ============================================================================
@@ -463,9 +476,7 @@ function EmbeddedZakatCalculator({
               0.025
           )
         : 0;
-  }
-
-  if (
+  } else if (
     activeTab ===
     "maal"
   ) {
@@ -488,12 +499,7 @@ function EmbeddedZakatCalculator({
               0.025
           )
         : 0;
-  }
-
-  if (
-    activeTab ===
-    "emas"
-  ) {
+  } else {
     const berat =
       Number(
         input1
@@ -521,62 +527,45 @@ function EmbeddedZakatCalculator({
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex border-b border-gray-200 bg-gray-50 text-xs font-bold">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab(
-              "penghasilan"
-            );
+        {(
+          [
+            [
+              "penghasilan",
+              "PENGHASILAN",
+            ],
+            ["maal", "MAAL"],
+            ["emas", "EMAS"],
+          ] as const
+        ).map(
+          ([
+            tab,
+            label,
+          ]) => (
+            <button
+              key={
+                tab
+              }
+              type="button"
+              onClick={() => {
+                setActiveTab(
+                  tab
+                );
 
-            resetInputs();
-          }}
-          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab ===
-            "penghasilan"
-              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
-              : "border-transparent text-slate-500"
-          }`}
-        >
-          PENGHASILAN
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab(
-              "maal"
-            );
-
-            resetInputs();
-          }}
-          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab ===
-            "maal"
-              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
-              : "border-transparent text-slate-500"
-          }`}
-        >
-          MAAL
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab(
-              "emas"
-            );
-
-            resetInputs();
-          }}
-          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab ===
-            "emas"
-              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
-              : "border-transparent text-slate-500"
-          }`}
-        >
-          EMAS
-        </button>
+                resetInputs();
+              }}
+              className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+                activeTab ===
+                tab
+                  ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+                  : "border-transparent text-slate-500"
+              }`}
+            >
+              {
+                label
+              }
+            </button>
+          )
+        )}
       </div>
 
       <div className="space-y-4 p-4 text-left">
@@ -730,7 +719,7 @@ function EmbeddedZakatCalculator({
 }
 
 // ============================================================================
-// DONATION FORM
+// DONATION FORM FIELDS
 // ============================================================================
 
 interface DonationFormFieldsProps {
@@ -1417,6 +1406,8 @@ function QrisPaymentModal({
 export default function CampaignDetailClient({
   slug,
   referral,
+  program: initialProgram,
+  initialProfile,
 }: CampaignDetailClientProps) {
   const router =
     useRouter();
@@ -1427,13 +1418,13 @@ export default function CampaignDetailClient({
   ] =
     useState<
       Program | null
-    >(null);
+    >(initialProgram || null);
 
   const [
     loading,
     setLoading,
   ] =
-    useState(true);
+    useState(!initialProgram);
 
   const [
     amount,
@@ -1449,13 +1440,15 @@ export default function CampaignDetailClient({
   ] =
     useState<
       Profile | null
-    >(null);
+    >(initialProfile || null);
 
   const [
     isLoggedIn,
     setIsLoggedIn,
   ] =
-    useState(false);
+    useState(
+      Boolean(initialProfile)
+    );
 
   const [
     inlinePhone,
@@ -1548,6 +1541,7 @@ export default function CampaignDetailClient({
   // ==========================================================================
 
   useEffect(() => {
+    if (initialProfile) return;
     let mounted = true;
 
     async function loadProfileFromDatabase() {
@@ -1669,13 +1663,14 @@ export default function CampaignDetailClient({
 
       subscription.unsubscribe();
     };
-  }, []);
+  }, [initialProfile]);
 
   // ==========================================================================
   // LOAD PROGRAM
   // ==========================================================================
 
   useEffect(() => {
+    if (initialProgram) return;
     const controller =
       new AbortController();
 
@@ -1795,7 +1790,7 @@ export default function CampaignDetailClient({
     return () => {
       controller.abort();
     };
-  }, [slug]);
+  }, [slug, initialProgram]);
 
   // ==========================================================================
   // COUNTDOWN QRIS
@@ -2434,19 +2429,6 @@ export default function CampaignDetailClient({
   // SHARE
   // ==========================================================================
 
-  /**
-   * URL share dibuat sendiri agar selalu bersih dan konsisten.
-   *
-   * Dengan cara ini parameter testing/cache seperti:
-   * ?wa=2
-   * ?ogtest=19
-   * ?share=4
-   *
-   * tidak ikut tersebar ketika pengguna membagikan campaign.
-   *
-   * Parameter referral tetap dipertahankan karena dipakai
-   * untuk pencatatan fundraiser.
-   */
   const shareUrl =
     useMemo(() => {
       let decodedSlug =
@@ -2543,10 +2525,6 @@ export default function CampaignDetailClient({
         return;
       }
 
-      /**
-       * Pada browser yang tidak mendukung Web Share API
-       * kita tampilkan modal share bawaan halaman.
-       */
       if (
         !navigator.share
       ) {
@@ -2574,10 +2552,6 @@ export default function CampaignDetailClient({
       } catch (
         error
       ) {
-        /**
-         * AbortError berarti pengguna sendiri menutup
-         * dialog share. Tidak perlu dianggap error.
-         */
         if (
           error instanceof DOMException &&
           error.name ===
@@ -2591,10 +2565,6 @@ export default function CampaignDetailClient({
           error
         );
 
-        /**
-         * Jika native share gagal karena alasan lain,
-         * buka modal share internal sebagai fallback.
-         */
         setIsShareModalOpen(
           true
         );
@@ -2732,7 +2702,7 @@ export default function CampaignDetailClient({
                 }
                 alt={
                   program.title ||
-                  "Program kebaikan islami.or.id"
+                  "Program kebaikan bdb.or.id"
                 }
                 width={
                   800
