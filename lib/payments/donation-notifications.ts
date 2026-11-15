@@ -18,7 +18,7 @@ interface Donation {
 
   amount?: number;
   programTitle?: string;
-  paidAt?: string;
+  paidAt?: string | null;
 
   status?: string;
   paymentVerified?: boolean;
