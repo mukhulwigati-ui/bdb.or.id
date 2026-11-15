@@ -1,10 +1,13 @@
 
+// lib/payments/casaku-settlement.ts
+
 import { randomUUID } from "node:crypto";
 import { createClient } from "@sanity/client";
 import {
   createClient as createSupabaseClient,
 } from "@supabase/supabase-js";
 import { Casaku } from "casaku";
+import { sendDonationNotifications } from "@/lib/payments/donation-notifications";
 
 // ============================================================================
 // CONFIG
@@ -85,6 +88,13 @@ export interface DonationTransaction {
 
   programCreditedAt?: string;
   fundraiserCreditedAt?: string;
+
+  // Notification markers
+  whatsappSentAt?: string;
+  whatsappSendingAt?: string;
+
+  googleSheetLoggedAt?: string;
+  googleSheetSendingAt?: string;
 }
 
 interface FundraiserDocument {
@@ -119,6 +129,22 @@ export interface CreditResult {
   credited: boolean;
   reason: string;
   feeAmount?: number;
+}
+
+export interface DonationNotificationResult {
+  whatsapp: {
+    success: boolean;
+    skipped?: boolean;
+    reason?: string;
+    error?: string;
+  };
+
+  googleSheets: {
+    success: boolean;
+    skipped?: boolean;
+    reason?: string;
+    error?: string;
+  };
 }
 
 // ============================================================================
@@ -301,6 +327,12 @@ const DONATION_PROJECTION = `
   programCreditedAt,
   fundraiserCreditedAt,
 
+  whatsappSentAt,
+  whatsappSendingAt,
+
+  googleSheetLoggedAt,
+  googleSheetSendingAt,
+
   "programId": programName->_id,
   "programTitle": programName->title
 `;
@@ -415,19 +447,16 @@ export async function checkCasakuTransaction(
       licenseKey,
     });
 
-    // SDK resmi Casaku.
     const response = await casaku.checkStatus(
       normalizedId
     );
 
-    // response.status adalah HTTP/API status.
     if (response.status !== 200) {
       throw new Error(
         `Casaku mengembalikan HTTP status ${response.status}.`
       );
     }
 
-    // Status pembayaran berada di response.data.status.
     const data = response.data;
 
     if (!data || typeof data !== "object") {
@@ -456,7 +485,6 @@ export async function checkCasakuTransaction(
     const rawStatus = data.status;
     const status = normalizeCasakuStatus(rawStatus);
 
-    // CheckStatus SDK mengembalikan nominal pada data.amount.
     const amount = Number(data.amount);
 
     if (
@@ -474,8 +502,6 @@ export async function checkCasakuTransaction(
       );
     }
 
-    // Field tambahan dibaca secara defensif karena tidak selalu
-    // tersedia pada respons checkStatus.
     const optionalData = data as typeof data & {
       paidAt?: string;
       paid_at?: string;
@@ -635,8 +661,6 @@ async function markTransactionSuccess(
     );
   }
 
-  // paymentAmount seharusnya berisi totalAmount Casaku,
-  // termasuk kode unik apabila digunakan.
   const expectedAmount = safeNumber(
     fresh.paymentAmount ?? fresh.amount
   );
@@ -666,7 +690,10 @@ async function markTransactionSuccess(
     fresh.paidAt ||
     new Date().toISOString();
 
-  if (!isSuccessfulStatus(fresh.status)) {
+  if (
+    !isSuccessfulStatus(fresh.status) ||
+    fresh.paymentVerified !== true
+  ) {
     const patch: Record<string, unknown> = {
       status: "success",
       paymentProvider: "casaku",
@@ -701,7 +728,8 @@ async function markTransactionSuccess(
 
       if (
         !after ||
-        !isSuccessfulStatus(after.status)
+        !isSuccessfulStatus(after.status) ||
+        after.paymentVerified !== true
       ) {
         throw error;
       }
@@ -747,7 +775,10 @@ async function markTransactionFailed(
     );
   }
 
-  if (isSuccessfulStatus(fresh.status)) {
+  if (
+    isSuccessfulStatus(fresh.status) &&
+    fresh.paymentVerified === true
+  ) {
     console.warn(
       "[CASAKU] Status gagal diabaikan karena transaksi sudah sukses:",
       fresh._id
@@ -783,7 +814,8 @@ async function markTransactionFailed(
 
     if (
       after &&
-      isSuccessfulStatus(after.status)
+      isSuccessfulStatus(after.status) &&
+      after.paymentVerified === true
     ) {
       return;
     }
@@ -1153,7 +1185,7 @@ async function creditFundraiser(
 }
 
 // ============================================================================
-// ENSURE DONATION CREDITS
+// ENSURE DONATION CREDITS + NOTIFICATIONS
 // ============================================================================
 
 export async function ensureDonationCredits(
@@ -1178,11 +1210,33 @@ export async function ensureDonationCredits(
         credited: false,
         reason: "payment_not_success",
       } as CreditResult,
+
+      notifications: null as DonationNotificationResult | null,
+    };
+  }
+
+  if (fresh.paymentVerified !== true) {
+    return {
+      program: {
+        credited: false,
+        reason: "payment_not_verified",
+      } as CreditResult,
+
+      fundraiser: {
+        credited: false,
+        reason: "payment_not_verified",
+      } as CreditResult,
+
+      notifications: null as DonationNotificationResult | null,
     };
   }
 
   let program: CreditResult;
   let fundraiser: CreditResult;
+
+  // --------------------------------------------------------------------------
+  // CREDIT PROGRAM
+  // --------------------------------------------------------------------------
 
   try {
     program = await creditProgram(fresh);
@@ -1198,6 +1252,10 @@ export async function ensureDonationCredits(
       reason: "credit_program_error",
     };
   }
+
+  // --------------------------------------------------------------------------
+  // CREDIT FUNDRAISER
+  // --------------------------------------------------------------------------
 
   try {
     const refreshed = await getDonationById(fresh._id);
@@ -1223,16 +1281,59 @@ export async function ensureDonationCredits(
     };
   }
 
-  console.log("[DONATION CREDITS]", {
+  // --------------------------------------------------------------------------
+  // SEND WHATSAPP + GOOGLE SHEETS
+  // --------------------------------------------------------------------------
+
+  let notifications: DonationNotificationResult | null = null;
+
+  try {
+    const latest = await getDonationById(fresh._id);
+
+    if (
+      latest &&
+      isSuccessfulStatus(latest.status) &&
+      latest.paymentVerified === true
+    ) {
+      notifications =
+        await sendDonationNotifications(latest);
+    }
+
+  } catch (error) {
+    console.error(
+      "[DONATION NOTIFICATION ERROR]",
+      {
+        sanityId: fresh._id,
+        orderId: fresh.orderId,
+        error,
+      }
+    );
+
+    // Notifikasi gagal tidak boleh membatalkan pembayaran sukses.
+    notifications = {
+      whatsapp: {
+        success: false,
+        error: "notification_processing_error",
+      },
+      googleSheets: {
+        success: false,
+        error: "notification_processing_error",
+      },
+    };
+  }
+
+  console.log("[DONATION CREDITS + NOTIFICATIONS]", {
     orderId: fresh.orderId,
     transactionId: fresh.transactionId,
     program,
     fundraiser,
+    notifications,
   });
 
   return {
     program,
     fundraiser,
+    notifications,
   };
 }
 
@@ -1251,8 +1352,15 @@ export async function reconcileDonation(
     );
   }
 
-  // SUDAH LUNAS
-  if (isSuccessfulStatus(fresh.status)) {
+  // --------------------------------------------------------------------------
+  // SUDAH SUKSES
+  // Tetap jalankan pemulihan kredit dan notifikasi yang belum selesai.
+  // --------------------------------------------------------------------------
+
+  if (
+    isSuccessfulStatus(fresh.status) &&
+    fresh.paymentVerified === true
+  ) {
     const credits = await ensureDonationCredits(fresh);
 
     return {
@@ -1263,7 +1371,10 @@ export async function reconcileDonation(
     };
   }
 
+  // --------------------------------------------------------------------------
   // ID ASLI CASAKU
+  // --------------------------------------------------------------------------
+
   const transactionId = getGatewayTransactionId(fresh);
 
   if (!transactionId) {
@@ -1272,10 +1383,16 @@ export async function reconcileDonation(
     );
   }
 
+  // --------------------------------------------------------------------------
   // CEK LANGSUNG KE CASAKU
+  // --------------------------------------------------------------------------
+
   const casaku = await checkCasakuTransaction(transactionId);
 
+  // --------------------------------------------------------------------------
   // PAID
+  // --------------------------------------------------------------------------
+
   if (casaku.status === "paid") {
     await markTransactionSuccess(fresh, casaku);
 
@@ -1300,7 +1417,10 @@ export async function reconcileDonation(
     };
   }
 
+  // --------------------------------------------------------------------------
   // EXPIRED / CANCEL
+  // --------------------------------------------------------------------------
+
   if (
     casaku.status === "expired" ||
     casaku.status === "cancel"
@@ -1309,14 +1429,18 @@ export async function reconcileDonation(
 
     const after = await getDonationById(fresh._id);
 
-    if (after && isSuccessfulStatus(after.status)) {
+    if (
+      after &&
+      isSuccessfulStatus(after.status) &&
+      after.paymentVerified === true
+    ) {
       const credits = await ensureDonationCredits(after);
 
       return {
         status: "success",
         casakuStatus: "paid" as CasakuStatus,
         credits,
-        transaction: after,
+        transaction: await getDonationById(fresh._id),
       };
     }
 
@@ -1328,7 +1452,10 @@ export async function reconcileDonation(
     };
   }
 
+  // --------------------------------------------------------------------------
   // PENDING
+  // --------------------------------------------------------------------------
+
   return {
     status: "pending",
     casakuStatus: "pending" as CasakuStatus,
