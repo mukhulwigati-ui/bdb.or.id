@@ -1,3 +1,4 @@
+
 // lib/payments/donation-notifications.ts
 
 import { createClient } from "@sanity/client";
@@ -11,23 +12,23 @@ interface Donation {
   _id: string;
   _rev?: string;
 
-  orderId?: string;
-  donorName?: string;
-  donorPhone?: string;
-  donorEmail?: string;
+  orderId?: string | null;
+  donorName?: string | null;
+  donorPhone?: string | null;
+  donorEmail?: string | null;
 
-  amount?: number;
-  programTitle?: string;
+  amount?: number | null;
+  programTitle?: string | null;
   paidAt?: string | null;
 
-  status?: string;
+  status?: string | null;
   paymentVerified?: boolean;
 
-  whatsappSentAt?: string;
-  whatsappSendingAt?: string;
+  whatsappSentAt?: string | null;
+  whatsappSendingAt?: string | null;
 
-  googleSheetLoggedAt?: string;
-  googleSheetSendingAt?: string;
+  googleSheetLoggedAt?: string | null;
+  googleSheetSendingAt?: string | null;
 }
 
 type NotificationChannel =
@@ -60,7 +61,7 @@ function getSanityClient() {
     process.env.SANITY_API_WRITE_TOKEN?.trim() ||
     process.env.SANITY_API_TOKEN?.trim();
 
-  if (!projectId || !token) {
+  if (!projectId || !dataset || !token) {
     throw new Error(
       "Konfigurasi Sanity belum lengkap untuk notifikasi donasi."
     );
@@ -123,15 +124,21 @@ function formatRupiah(value: number): string {
   }).format(value);
 }
 
-function formatPaidDate(value?: string): string {
-  const date = value ? new Date(value) : new Date();
+// ============================================================================
+// FORMAT PAID DATE
+// ============================================================================
+
+function formatPaidDate(
+  value?: string | null
+): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return new Intl.DateTimeFormat("id-ID", {
-      timeZone: "Asia/Jakarta",
-      dateStyle: "short",
-      timeStyle: "medium",
-    }).format(new Date());
+    return "-";
   }
 
   return new Intl.DateTimeFormat("id-ID", {
@@ -146,17 +153,29 @@ function formatPaidDate(value?: string): string {
   }).format(date);
 }
 
-function isRecentClaim(value?: string): boolean {
+// ============================================================================
+// CLAIM HELPERS
+// ============================================================================
+
+function isRecentClaim(
+  value?: string | null
+): boolean {
   if (!value) return false;
 
   const timestamp = new Date(value).getTime();
 
-  if (Number.isNaN(timestamp)) return false;
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
 
-  return Date.now() - timestamp < CLAIM_TIMEOUT_MS;
+  const age = Date.now() - timestamp;
+
+  return age >= 0 && age < CLAIM_TIMEOUT_MS;
 }
 
-function getChannelFields(channel: NotificationChannel) {
+function getChannelFields(
+  channel: NotificationChannel
+) {
   if (channel === "whatsapp") {
     return {
       sent: "whatsappSentAt",
@@ -215,10 +234,10 @@ async function getFreshDonation(
 // ============================================================================
 
 /**
- * Mengunci satu channel notifikasi menggunakan revision Sanity.
+ * Claim satu channel menggunakan revision Sanity.
  *
- * Dua proses bersamaan tidak dapat mengambil revision yang sama.
- * Claim yang sudah terlalu lama dapat diambil kembali.
+ * Proses lain tidak dapat mengambil revision yang sama.
+ * Claim lama dapat diambil kembali setelah timeout.
  */
 
 async function claimNotification(
@@ -266,8 +285,11 @@ async function claimNotification(
   } catch (error) {
     console.warn(
       `[BDB NOTIFICATION] Claim ${channel} gagal atau sudah diambil proses lain.`,
-      fresh.orderId,
-      error
+      {
+        orderId: fresh.orderId,
+        donationId: fresh._id,
+        error,
+      }
     );
 
     return null;
@@ -285,11 +307,13 @@ async function completeNotification(
   const sanity = getSanityClient();
   const fields = getChannelFields(channel);
 
+  const now = new Date().toISOString();
+
   await sanity
     .patch(donationId)
     .set({
-      [fields.sent]: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      [fields.sent]: now,
+      updatedAt: now,
     })
     .unset([fields.sending])
     .commit();
@@ -318,8 +342,10 @@ async function releaseNotification(
   } catch (error) {
     console.error(
       `[BDB NOTIFICATION] Gagal melepas claim ${channel}.`,
-      donationId,
-      error
+      {
+        donationId,
+        error,
+      }
     );
   }
 }
@@ -328,7 +354,9 @@ async function releaseNotification(
 // GOOGLE SERVICE ACCOUNT JWT
 // ============================================================================
 
-function base64url(value: string | Buffer): string {
+function base64url(
+  value: string | Buffer
+): string {
   return Buffer.from(value)
     .toString("base64")
     .replace(/=/g, "")
@@ -387,6 +415,7 @@ async function getGoogleAccessToken(): Promise<string> {
   const unsignedToken = `${header}.${payload}`;
 
   const signer = crypto.createSign("RSA-SHA256");
+
   signer.update(unsignedToken);
   signer.end();
 
@@ -435,7 +464,7 @@ async function getGoogleAccessToken(): Promise<string> {
 }
 
 // ============================================================================
-// GOOGLE SHEETS HELPERS
+// GOOGLE SHEETS CONFIG
 // ============================================================================
 
 function getGoogleSheetConfig() {
@@ -454,11 +483,21 @@ function getGoogleSheetConfig() {
     );
   }
 
+  if (!sheetTab) {
+    throw new Error(
+      "Nama tab Google Sheets tidak valid."
+    );
+  }
+
   return {
     sheetId,
     sheetTab,
   };
 }
+
+// ============================================================================
+// GOOGLE SHEETS REQUEST
+// ============================================================================
 
 async function googleSheetsRequest(
   url: string,
@@ -497,16 +536,36 @@ async function googleSheetsRequest(
 }
 
 // ============================================================================
+// GOOGLE SHEETS RANGE
+// ============================================================================
+
+function encodeSheetRange(
+  sheetTab: string,
+  range: string
+): string {
+  const escapedTab = sheetTab.replace(/'/g, "''");
+
+  return encodeURIComponent(
+    `'${escapedTab}'!${range}`
+  );
+}
+
+// ============================================================================
 // SAVE DONATION TO GOOGLE SHEETS
 // ============================================================================
 
 async function saveToGoogleSheets(
   donation: Donation
 ): Promise<void> {
-  const { sheetId, sheetTab } =
-    getGoogleSheetConfig();
+  const {
+    sheetId,
+    sheetTab,
+  } = getGoogleSheetConfig();
 
-  const orderId = cleanText(donation.orderId, 250);
+  const orderId = cleanText(
+    donation.orderId,
+    250
+  );
 
   if (!orderId) {
     throw new Error(
@@ -515,19 +574,23 @@ async function saveToGoogleSheets(
   }
 
   const amount = safeAmount(donation.amount);
+
   const token = await getGoogleAccessToken();
 
   const baseUrl =
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values`;
 
-  const sheetName = encodeURIComponent(sheetTab);
+  // --------------------------------------------------------------------------
+  // CEK ORDER ID DI KOLOM B
+  // --------------------------------------------------------------------------
 
-  // --------------------------------------------------------------------------
-  // PERIKSA ORDER ID DI KOLOM B
-  // --------------------------------------------------------------------------
+  const checkRange = encodeSheetRange(
+    sheetTab,
+    "B:B"
+  );
 
   const checkUrl =
-    `${baseUrl}/${sheetName}%21B%3AB`;
+    `${baseUrl}/${checkRange}`;
 
   const checkResult = await googleSheetsRequest(
     checkUrl,
@@ -536,7 +599,9 @@ async function saveToGoogleSheets(
 
   const existingOrderIds: string[] = (
     checkResult.values || []
-  ).flat().map((value: unknown) => String(value));
+  )
+    .flat()
+    .map((value: unknown) => String(value).trim());
 
   if (existingOrderIds.includes(orderId)) {
     console.log(
@@ -548,8 +613,16 @@ async function saveToGoogleSheets(
   }
 
   // --------------------------------------------------------------------------
-  // DATA SESUAI ENAM KOLOM GOOGLE SHEETS
+  // DATA GOOGLE SHEETS
   // --------------------------------------------------------------------------
+
+  // Urutan kolom:
+  // A = Tanggal Pembayaran
+  // B = Order ID
+  // C = Nama Donatur
+  // D = Nomor WhatsApp
+  // E = Nominal Donasi
+  // F = Program Donasi
 
   const row = [
     formatPaidDate(donation.paidAt),
@@ -562,8 +635,17 @@ async function saveToGoogleSheets(
       "Donasi Umum",
   ];
 
+  // --------------------------------------------------------------------------
+  // APPEND DATA
+  // --------------------------------------------------------------------------
+
+  const appendRange = encodeSheetRange(
+    sheetTab,
+    "A:F"
+  );
+
   const appendUrl =
-    `${baseUrl}/${sheetName}%21A%3AF:append` +
+    `${baseUrl}/${appendRange}:append` +
     `?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
 
   await googleSheetsRequest(
@@ -614,7 +696,9 @@ async function sendFonnteMessage(
     );
   }
 
-  const amount = safeAmount(donation.amount);
+  const amount = safeAmount(
+    donation.amount
+  );
 
   const donorName =
     cleanText(donation.donorName, 150) ||
@@ -778,7 +862,8 @@ export async function sendDonationNotifications(
   const skipped: ChannelResult = {
     success: false,
     skipped: true,
-    reason: "Pembayaran belum terverifikasi.",
+    reason:
+      "Pembayaran belum terverifikasi.",
   };
 
   if (
@@ -807,20 +892,33 @@ export async function sendDonationNotifications(
     };
   }
 
-  // Kedua channel dijalankan terpisah.
-  // Kegagalan salah satu tidak menghentikan channel lainnya.
+  /*
+   * PENTING:
+   * Jalankan berurutan karena kedua channel melakukan
+   * patch pada dokumen Sanity yang sama.
+   *
+   * Dengan urutan ini, claim channel kedua membaca
+   * revision terbaru setelah channel pertama selesai.
+   */
 
-  const [whatsapp, googleSheets] =
-    await Promise.all([
-      processChannel(fresh, "whatsapp"),
-      processChannel(fresh, "google_sheets"),
-    ]);
+  const whatsapp = await processChannel(
+    fresh,
+    "whatsapp"
+  );
 
-  console.log("[BDB DONATION NOTIFICATIONS]", {
-    orderId: fresh.orderId,
-    whatsapp,
-    googleSheets,
-  });
+  const googleSheets = await processChannel(
+    fresh,
+    "google_sheets"
+  );
+
+  console.log(
+    "[BDB DONATION NOTIFICATIONS]",
+    {
+      orderId: fresh.orderId,
+      whatsapp,
+      googleSheets,
+    }
+  );
 
   return {
     whatsapp,
